@@ -27,13 +27,6 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
         
-      - name: Replace tokens in appsettings.json
-        run: |
-          $appsettingsPath = "wwwroot/appsettings.json"
-          $content = Get-Content $appsettingsPath -Raw
-          $content = $content -replace '<AzureAdClientId>', '${{ vars.AZURE_AD_CLIENT_ID }}'
-          $content = $content -replace '<BlobStorageSasApiEndpoint>', '${{ vars.BLOB_STORAGE_SAS_API_ENDPOINT }}'
-          Set-Content $appsettingsPath -Value $content
         
       - name: Build
         run: dotnet publish -c Release -o ./publish
