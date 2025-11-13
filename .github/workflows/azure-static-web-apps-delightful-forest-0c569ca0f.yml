@@ -42,6 +42,12 @@ jobs:
           app_location: "./publish/wwwroot" # App source code path
           output_location: "" # Built app content directory - optional
           skip_app_build: true
+          # App settings for production environment
+          env:
+            AzureAd__ClientId: ${{ secrets.AZURE_AD_CLIENT_ID }}
+            AzureAd__Authority: ${{ secrets.AZURE_AD_AUTHORITY }}
+            AzureAd__ValidateAuthority: "true"
+            BlobStorage__SasApiEndpoint: ${{ secrets.BLOB_STORAGE_SAS_API_ENDPOINT }}
           ###### End of Repository/Build Configurations ######
 
   close_pull_request_job:
