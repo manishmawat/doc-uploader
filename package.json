@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "build": "echo 'This is a .NET Blazor WebAssembly app - build handled by .NET tooling'",
+    "build:azure": "echo 'This is a .NET Blazor WebAssembly app - build handled by .NET tooling'"
+  },
   "devDependencies": {
     "@azure/static-web-apps-cli": "^2.0.7"
   }
