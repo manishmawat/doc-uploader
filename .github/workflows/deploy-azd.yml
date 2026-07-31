@@ -37,6 +37,11 @@ jobs:
         with:
           submodules: true
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
       - name: Install azd CLI
         run: |
           curl -fsSL https://aka.ms/install-azd.sh | bash
@@ -63,6 +68,9 @@ jobs:
           AZURE_ENV_NAME: ${{ env.AZURE_ENV_NAME }}
           AZURE_LOCATION: ${{ env.AZURE_LOCATION }}
           AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build .NET project
+        run: dotnet publish --configuration Release
 
       - name: azd deploy
         run: azd deploy --no-prompt
