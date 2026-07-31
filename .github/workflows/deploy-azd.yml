@@ -21,7 +21,7 @@ on:
           - prod
 
 env:
-  AZURE_ENV_NAME: uploaderapp
+  AZURE_ENV_NAME: uploaderapp-${{ github.event.inputs.environment || 'dev' }}
   AZURE_LOCATION: eastus
 
 jobs:
@@ -62,6 +62,7 @@ jobs:
         env:
           AZURE_ENV_NAME: ${{ env.AZURE_ENV_NAME }}
           AZURE_LOCATION: ${{ env.AZURE_LOCATION }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: azd deploy
         run: azd deploy --no-prompt
