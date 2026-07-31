@@ -1,0 +1,10 @@
+name: UploaderDoc
+metadata:
+  description: PDF Processing Web Application with Blazor WebAssembly
+  template: static-web-app-blazor
+services:
+  web:
+    project: .
+    language: csharp
+    host: staticwebapp
+    dist: bin/Release/net9.0/publish/wwwroot
