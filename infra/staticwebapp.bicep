@@ -21,7 +21,7 @@ resource staticWebApp 'Microsoft.Web/staticSites@2023-12-01' = {
 // Custom domain (optional - can be configured post-deployment)
 // Configure HTTPS redirects and SPA routing
 resource spaRouting 'Microsoft.Web/staticSites/config@2023-12-01' = {
-  name: '${name}/web'
+  name: 'appsettings'
   parent: staticWebApp
   properties: {
     // Fallback to index.html for SPA routing
