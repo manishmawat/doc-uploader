@@ -32,4 +32,4 @@ resource spaRouting 'Microsoft.Web/staticSites/config@2023-12-01' = {
 output id string = staticWebApp.id
 output name string = staticWebApp.name
 output url string = staticWebApp.properties.defaultHostname != null ? 'https://${staticWebApp.properties.defaultHostname}' : ''
-output deploymentToken string = listSecrets(staticWebApp.id, '2023-12-01').properties.repositoryToken
+output deploymentToken string = listSecrets(staticWebApp.id, '2023-12-01').properties.apiKey
