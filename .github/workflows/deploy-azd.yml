@@ -69,6 +69,15 @@ jobs:
           AZURE_LOCATION: ${{ env.AZURE_LOCATION }}
           AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Extract deployment token
+        run: |
+          DEPLOYMENT_TOKEN=$(azd env get-values | grep -i deploymentToken | awk -F= '{print $NF}' | tr -d ' ')
+          if [ -z "$DEPLOYMENT_TOKEN" ]; then
+            echo "WARNING: Could not extract DEPLOYMENT_TOKEN"
+            azd env get-values
+          fi
+          echo "DEPLOYMENT_TOKEN=$DEPLOYMENT_TOKEN" >> $GITHUB_ENV
+
       - name: Build .NET project
         run: dotnet publish --configuration Release
 
@@ -76,6 +85,7 @@ jobs:
         run: azd deploy --no-prompt
         env:
           AZURE_ENV_NAME: ${{ env.AZURE_ENV_NAME }}
+          AZURE_STATIC_WEB_APPS_API_TOKEN: ${{ env.DEPLOYMENT_TOKEN }}
 
       - name: Display deployment outputs
         run: |
