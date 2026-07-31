@@ -22,7 +22,7 @@ on:
 
 env:
   AZURE_ENV_NAME: uploaderapp-${{ github.event.inputs.environment || 'dev' }}
-  AZURE_LOCATION: eastus
+  AZURE_LOCATION: eastus2
 
 jobs:
   deploy:
