@@ -13,22 +13,20 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 builder.Services.Configure<BlobStorageOptions>(
     builder.Configuration.GetSection(BlobStorageOptions.SectionName));
 
-// Configure MSAL authentication for Azure AD B2C
+// Configure MSAL authentication for Azure AD
+// Access control is managed via Azure AD guest user invitations
 builder.Services.AddMsalAuthentication(options =>
 {
     builder.Configuration.Bind("AzureAd", options.ProviderOptions.Authentication);
-
-        // Add your API scope
-    // options.ProviderOptions.DefaultAccessTokenScopes.Add("api://693eed20-68f0-448e-b5df-d6892e8c08c0/SASKey.Write");
-    
-    // B2C specific configuration
-    options.ProviderOptions.Authentication.ValidateAuthority = false;
     options.ProviderOptions.LoginMode = "redirect";
-    
-    // B2C default scopes
-    options.ProviderOptions.DefaultAccessTokenScopes.Add("openid");
-    options.ProviderOptions.DefaultAccessTokenScopes.Add("profile");
-    
+
+    // Request consent for the SAS API scope at sign-in so uploads don't trigger a second redirect
+    var apiScope = builder.Configuration[$"{BlobStorageOptions.SectionName}:ApiScope"];
+    if (!string.IsNullOrEmpty(apiScope))
+    {
+        options.ProviderOptions.AdditionalScopesToConsent.Add(apiScope);
+    }
+
     // Configure cache for SPA
     options.ProviderOptions.Cache.CacheLocation = "localStorage";
     options.ProviderOptions.Cache.StoreAuthStateInCookie = false;

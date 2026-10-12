@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # Azurite - Local Azure Storage emulator for development
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: azurite-storage
+    ports:
+      - "10000:10000"  # Blob service
+      - "10001:10001"  # Queue service
+      - "10002:10002"  # Table service
+    networks:
+      - doc-uploader-network
+    environment:
+      - AZURITE_ACCOUNTS=devstoreaccount1:Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
+
+  # Document Uploader API
+  doc-uploader-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: doc-uploader-api
+    ports:
+      - "7071:80"
+    depends_on:
+      - azurite
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      # Development: Uses azurite (local storage)
+      # For Azure AD testing, provide credentials via environment
+      - AzureAd__TenantId=${AZURE_TENANT_ID:-bc4e51bb-2207-4ec4-9d25-57c74d363241}
+      - AzureAd__ClientId=${AZURE_API_CLIENT_ID:-3a742ac5-add7-414a-ba33-dbda1263109a}
+      # Azurite connection string (replaces AccountName when set)
+      - AzureBlobStorage__ConnectionString=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;
+      - AzureBlobStorage__ContainerName=documents
+      - AzureBlobStorage__AccountName=devstoreaccount1
+    networks:
+      - doc-uploader-network
+    volumes:
+      - ~/.azure:/root/.azure:ro
+
+networks:
+  doc-uploader-network:
+    driver: bridge

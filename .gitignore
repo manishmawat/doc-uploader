@@ -483,6 +483,17 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
-wwwroot/appsettings.Development.json
-wwwroot/appsettings.Production.json
-wwwroot/appsettings.dev.json
+frontend/wwwroot/appsettings.Development.json
+frontend/wwwroot/appsettings.Production.json
+frontend/wwwroot/appsettings.dev.json
+
+# Backend local settings and secrets
+backend/appsettings.Local.json
+backend/.env
+backend/.env.local
+backend/secrets.json
+
+# Azurite local storage data (VS Code extension writes it to the workspace root)
+__azurite_db_*.json
+__blobstorage__/
+__queuestorage__/

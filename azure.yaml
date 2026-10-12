@@ -4,7 +4,7 @@ metadata:
   template: static-web-app-blazor
 services:
   web:
-    project: .
+    project: ./frontend
     language: csharp
     host: staticwebapp
-    dist: bin/Release/net9.0/publish/wwwroot
+    dist: bin/Release/net10.0/publish/wwwroot

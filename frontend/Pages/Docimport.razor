@@ -1,0 +1,254 @@
+@page "/docimport"
+@using UploaderDoc.Services
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+
+<h3>Docimport</h3>
+
+@* Step 1: select files. They are only staged here; nothing is uploaded until the user confirms. *@
+<FluentInputFile Id="my-file-uploader"
+                 Mode="InputFileMode.SaveToTemporaryFolder"
+                 Multiple="true"
+                 MaximumFileCount="@MaxFiles"
+                 MaximumFileSize="@(10*1024*1024)"
+                 Accept="image/*"
+                 Disabled="@isUploading"
+                 @bind-ProgressPercent="@ProgressPercent"
+                 OnCompleted="@OnFilesSelected"
+                 Style="height: 300px;">
+    <ChildContent>
+        <label for="my-file-uploader">
+            <FluentIcon Value="@(new @Icons.Regular.Size24.ArrowUpload())" />
+        </label>
+
+        <div>
+            Drag files here you wish to upload,
+            or <label for="my-file-uploader">browse</label>
+            for them<span style="color: red;">*</span>.
+            <br />
+            <em>Maximum of @MaxFiles files allowed. You can review the files before they are uploaded.</em>
+        </div>
+
+        <div>
+            <br />
+            <a href="#">Read more about our supported file formats.</a>
+        </div>
+    </ChildContent>
+</FluentInputFile>
+
+@* Step 2: review and confirm *@
+@if (selectedFiles.Any())
+{
+    <div class="mt-3">
+        <h4>Files to upload (@selectedFiles.Count):</h4>
+        <FluentDataGrid Items="@selectedFiles.AsQueryable()" class="file-grid">
+            <PropertyColumn Property="@(f => f.Name)" Title="File Name" />
+            <PropertyColumn Property="@(f => FormatFileSize(f.Size))" Title="Size" />
+            <TemplateColumn Title="Status">
+                @switch (context.State)
+                {
+                    case UploadState.Uploading:
+                        <FluentProgressRing Width="16px" /> <span>Uploading...</span>
+                        break;
+                    case UploadState.Uploaded:
+                        <FluentIcon Value="@(new Icons.Regular.Size16.CheckmarkCircle())" Color="Color.Success" /> <span>Uploaded</span>
+                        break;
+                    case UploadState.Failed:
+                        <FluentIcon Value="@(new Icons.Regular.Size16.ErrorCircle())" Color="Color.Error" /> <span title="@context.Error">Failed: @context.Error</span>
+                        break;
+                    default:
+                        <span>Ready to upload</span>
+                        break;
+                }
+            </TemplateColumn>
+            <TemplateColumn Title="Actions">
+                @if (context.State is UploadState.Pending or UploadState.Failed)
+                {
+                    <FluentButton Appearance="Appearance.Lightweight"
+                                  OnClick="@(() => RemoveFile(context))"
+                                  Disabled="@isUploading"
+                                  IconStart="@(new Icons.Regular.Size16.Delete())">
+                        Remove
+                    </FluentButton>
+                }
+            </TemplateColumn>
+        </FluentDataGrid>
+    </div>
+
+    <div class="mt-3 d-flex gap-2">
+        <FluentButton Appearance="Appearance.Accent"
+                      OnClick="@ConfirmUploadAsync"
+                      Loading="@isUploading"
+                      Disabled="@(FilesToUpload.Count == 0 || isUploading)"
+                      IconStart="@(new Icons.Regular.Size16.ArrowUpload())">
+            @if (isUploading)
+            {
+                <span>Uploading...</span>
+            }
+            else
+            {
+                <span>Upload @FilesToUpload.Count file(s)</span>
+            }
+        </FluentButton>
+
+        <FluentButton Appearance="Appearance.Neutral"
+                      OnClick="@ClearFiles"
+                      Disabled="@isUploading"
+                      IconStart="@(new Icons.Regular.Size16.Delete())">
+            Clear All
+        </FluentButton>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <FluentMessageBar Intent="@messageIntent" Class="mt-3">
+        @statusMessage
+    </FluentMessageBar>
+}
+
+@code
+{
+    private const int MaxFiles = 4;
+
+    int ProgressPercent = 0;
+    private readonly List<SelectedFile> selectedFiles = new();
+    private bool isUploading;
+    private string? statusMessage;
+    private MessageIntent messageIntent = MessageIntent.Info;
+
+    [Inject]
+    private IDocumentUploadService DocumentUploadService { get; set; } = default!;
+
+    private List<SelectedFile> FilesToUpload =>
+        selectedFiles.Where(f => f.State is UploadState.Pending or UploadState.Failed).ToList();
+
+    private void OnFilesSelected(IEnumerable<FluentInputFileEventArgs> files)
+    {
+        ProgressPercent = 0;
+        var rejected = new List<string>();
+
+        // Files from a previous batch that are already uploaded are no longer relevant
+        RemoveWhere(f => f.State == UploadState.Uploaded);
+
+        foreach (var file in files)
+        {
+            if (!string.IsNullOrEmpty(file.ErrorMessage) || file.LocalFile is null)
+            {
+                rejected.Add($"{file.Name}: {file.ErrorMessage ?? "could not be read"}");
+                continue;
+            }
+
+            // Selecting the same file name again replaces the earlier selection
+            RemoveWhere(f => string.Equals(f.Name, file.Name, StringComparison.OrdinalIgnoreCase));
+
+            if (selectedFiles.Count >= MaxFiles)
+            {
+                rejected.Add($"{file.Name}: maximum of {MaxFiles} files reached");
+                file.LocalFile.Delete();
+                continue;
+            }
+
+            selectedFiles.Add(new SelectedFile(file.Name, file.Size, file.LocalFile));
+        }
+
+        if (rejected.Any())
+            ShowMessage($"Some files were not added: {string.Join("; ", rejected)}", MessageIntent.Warning);
+        else
+            ShowMessage($"{FilesToUpload.Count} file(s) ready. Review the list and click Upload to confirm.", MessageIntent.Info);
+    }
+
+    private async Task ConfirmUploadAsync()
+    {
+        var files = FilesToUpload;
+        if (files.Count == 0)
+            return;
+
+        isUploading = true;
+        statusMessage = null;
+
+        try
+        {
+            foreach (var file in files)
+            {
+                file.State = UploadState.Uploading;
+                file.Error = null;
+                StateHasChanged();
+
+                try
+                {
+                    await using (var stream = file.LocalFile.OpenRead())
+                    {
+                        await DocumentUploadService.UploadDocumentAsync(stream, file.Name);
+                    }
+                    file.State = UploadState.Uploaded;
+                    file.LocalFile.Delete();
+                }
+                catch (AccessTokenNotAvailableException ex)
+                {
+                    // Session expired or consent needed: send the user to sign in again
+                    file.State = UploadState.Pending;
+                    ex.Redirect();
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    file.State = UploadState.Failed;
+                    file.Error = ex.Message;
+                    Console.WriteLine($"Upload failed for {file.Name}: {ex}");
+                }
+            }
+        }
+        finally
+        {
+            isUploading = false;
+        }
+
+        var failed = files.Count(f => f.State == UploadState.Failed);
+        if (failed == 0)
+            ShowMessage($"{files.Count} file(s) uploaded successfully.", MessageIntent.Success);
+        else
+            ShowMessage($"{files.Count - failed} of {files.Count} file(s) uploaded. {failed} failed; you can retry or remove them.", MessageIntent.Error);
+    }
+
+    private void RemoveFile(SelectedFile file)
+    {
+        RemoveWhere(f => ReferenceEquals(f, file));
+        statusMessage = null;
+    }
+
+    private void ClearFiles()
+    {
+        RemoveWhere(_ => true);
+        statusMessage = null;
+    }
+
+    private void RemoveWhere(Func<SelectedFile, bool> predicate)
+    {
+        foreach (var file in selectedFiles.Where(predicate).ToList())
+        {
+            if (file.LocalFile.Exists)
+                file.LocalFile.Delete();
+            selectedFiles.Remove(file);
+        }
+    }
+
+    private void ShowMessage(string message, MessageIntent intent)
+    {
+        statusMessage = message;
+        messageIntent = intent;
+    }
+
+    private static string FormatFileSize(long bytes) =>
+        bytes >= 1024 * 1024 ? $"{bytes / (1024.0 * 1024.0):N2} MB" : $"{Decimal.Divide(bytes, 1024):N} KB";
+
+    private enum UploadState { Pending, Uploading, Uploaded, Failed }
+
+    private sealed class SelectedFile(string name, long size, FileInfo localFile)
+    {
+        public string Name { get; } = name;
+        public long Size { get; } = size;
+        public FileInfo LocalFile { get; } = localFile;
+        public UploadState State { get; set; } = UploadState.Pending;
+        public string? Error { get; set; }
+    }
+}

@@ -1,0 +1,13 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/backend/">
+    <Project Path="backend/DocUploaderApi.csproj" />
+  </Folder>
+  <Folder Name="/frontend/">
+    <Project Path="frontend/UploaderDoc.csproj" />
+  </Folder>
+</Solution>
