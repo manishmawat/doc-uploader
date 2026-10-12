@@ -76,9 +76,8 @@ if ($apiReady) {
     Write-Host "   3. Download Azure Storage Explorer for blob inspection" -ForegroundColor White
     Write-Host ""
     Write-Host "📚 Documentation:" -ForegroundColor Cyan
-    Write-Host "   - Local dev guide:  AZURITE_LOCAL_DEV.md" -ForegroundColor White
-    Write-Host "   - API testing:      TESTING.md" -ForegroundColor White
-    Write-Host "   - Getting started:  GETTING_STARTED.md" -ForegroundColor White
+    Write-Host "   - Local dev guide:  ../docs/LOCAL_DEVELOPMENT.md" -ForegroundColor White
+    Write-Host "   - API reference:    README.md" -ForegroundColor White
     Write-Host ""
     Write-Host "🛑 To stop services: docker-compose down" -ForegroundColor Gray
     Write-Host "📊 To view logs:      docker-compose logs -f doc-uploader-api" -ForegroundColor Gray

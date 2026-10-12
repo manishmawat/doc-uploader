@@ -1,286 +1,87 @@
-# UploaderDoc - PDF Processing Web Application
+# UploaderDoc
 
-A modern Blazor WebAssembly Progressive Web App (PWA) for document management and PDF processing, built with .NET 9.0 and Microsoft FluentUI components.
+A Blazor WebAssembly app for uploading documents to Azure Blob Storage and working with PDFs in the browser, backed by a small ASP.NET Core API that issues per-user upload tokens. Sign-in uses Microsoft Entra ID (Azure AD), and access is limited to invited users.
 
-## 🌟 Features
+**Live site:** https://delightful-ground-0b7a65d0f.7.azurestaticapps.net
+**API:** https://doc-uploader-dev-api.azurewebsites.net (`/health` is public; everything else needs a token)
 
-### 📁 Document Management
-- **File Upload**: Secure document upload with Azure Blob Storage integration
-- **Multi-format Support**: Upload various image formats and documents
-- **Progress Tracking**: Real-time upload progress with visual indicators
-- **File Validation**: Automatic file type and size validation
+## Features
 
-### 📄 PDF Processing
-- **PDF Merge**: Combine multiple PDF files into a single document
-  - Support for up to 10 PDF files (50MB each)
-  - Drag-and-drop file selection
-  - Real-time file management (add/remove files)
-  - Order preservation during merge
-- **File to PDF Conversion**: Convert image files to PDF format
-  - Supported formats: JPEG, PNG, BMP, TIFF, WEBP
-  - Batch conversion (up to 20 files)
-  - A4 page size with automatic image scaling
-  - Individual PDF downloads
+| Page | What it does | Sign-in |
+|---|---|---|
+| **Upload Documents** (`/docimport`) | Two-step upload. Select up to 4 files (10 MB each) and review the list, then confirm. Each file shows its status, and failed uploads can be retried. Files are stored under a folder named after the signed-in user's email. | Required |
+| **PDF Merge** (`/pdfmerge`) | Combine up to 10 PDFs (50 MB each) into one, in the order selected. | No |
+| **File to PDF** (`/fileconvert`) | Convert up to 20 images (JPEG, PNG, BMP, TIFF, WEBP) into A4 PDFs. | No |
+| **PDF Optimizer** (`/pdfoptimize`) | Reduce PDF file size. | No |
 
-### 🔐 Authentication & Security
-- **Azure AD B2C Integration**: Secure user authentication
-- **Role-based Access**: Protected routes for authenticated users
-- **Token Management**: Automatic token refresh and validation
-- **Secure API Access**: Bearer token authentication for backend services
+PDF merge, conversion and optimization run entirely in the browser (iText7 on WebAssembly). No file leaves the user's machine for these tools.
 
-### 🎨 Modern UI/UX
-- **FluentUI Design**: Microsoft's modern design system
-- **Responsive Layout**: Works on desktop, tablet, and mobile
-- **Dark/Light Theme**: Automatic theme support
-- **Progressive Web App**: Installable web application
-- **Accessibility**: WCAG compliant interface
+## How upload works
 
-## 🛠️ Technology Stack
+```
+ Browser (Blazor WASM)              Backend API (App Service)         Azure Blob Storage
+ ─────────────────────              ─────────────────────────         ──────────────────
+ 1. Sign in with Entra ID (MSAL)
+ 2. User selects files, then clicks Upload
+ 3. POST /api/DocumentUpload/sas-token ──▶ validates token + SASKey.Write scope
+    { fileName, fileSizeBytes }            checks extension and size
+                                           builds path <email>/<fileName>
+                                    ◀───── returns a SAS for that one blob
+                                           (Create + Write, expires in 30 min)
+ 4. PUT file directly to blob storage with the SAS ─────────────────────▶ documents/<email>/<fileName>
+```
 
-### Frontend
-- **Framework**: Blazor WebAssembly (.NET 9.0)
-- **UI Library**: Microsoft FluentUI Components 4.13.1
-- **Icons**: FluentUI Icons 4.13.1
-- **Authentication**: Microsoft Authentication Library (MSAL) 9.0.0
-- **PWA**: Service Worker integration
+The API never handles file contents. It only decides *where* a user may write and signs a short-lived URL for exactly that blob, so a user can't write into another user's folder.
 
-### Backend Integration
-- **Cloud Storage**: Azure Blob Storage 12.26.0
-- **PDF Processing**: iText7 7.2.5 (WebAssembly compatible)
-- **HTTP Client**: Built-in .NET HTTP client with authentication
+## Repository layout
 
-### Development Tools
-- **IDE Support**: Visual Studio, VS Code
-- **Build System**: .NET SDK with MSBuild
-- **Package Management**: NuGet
-- **Version Control**: Git with GitHub Actions
+```
+frontend/                 Blazor WebAssembly app (UploaderDoc.csproj)
+  Pages/                  Docimport, PdfMerge, FileConverter, PdfOptimize, Authentication
+  Services/               DocumentUploadService (calls the API) and the PDF services
+  wwwroot/                appsettings.json (local), appsettings.Production.json, staticwebapp.config.json
+backend/                  ASP.NET Core Web API (DocUploaderApi.csproj)
+  Controllers/            DocumentUploadController
+  Services/               BlobStorageService (SAS generation, validation)
+  docker-compose.yml      Optional: API + Azurite in containers
+infra/                    Bicep for the Static Web App and storage account (used by deploy-azd.yml)
+.github/workflows/        CI/CD (see docs/DEPLOYMENT.md)
+docs/                     Setup and deployment guides
+DocumentUploader.slnx     Solution containing both projects
+global.json               Pins the .NET 10 SDK
+```
 
-## 🚀 Getting Started
+## Tech stack
 
-### Prerequisites
-- [.NET 9.0 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
-- [Visual Studio 2022](https://visualstudio.microsoft.com/) or [VS Code](https://code.visualstudio.com/)
-- [Node.js](https://nodejs.org/) (for Azure Static Web Apps CLI)
+- **.NET 10** (SDK pinned in `global.json`)
+- **Frontend:** Blazor WebAssembly, Microsoft FluentUI Blazor 4.13, MSAL (`Microsoft.Authentication.WebAssembly.Msal`), Azure.Storage.Blobs, iText7
+- **Backend:** ASP.NET Core Web API, Microsoft.Identity.Web 4.16, Azure.Storage.Blobs, Azure.Identity, Serilog, Swagger (Development only)
+- **Azure:** Static Web Apps (frontend), App Service on Linux (API), Blob Storage, Entra ID
+- **Local storage emulator:** Azurite
 
-### Installation
+## Quick start (local)
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/manishmawat/doc-uploader.git
-   cd doc-uploader
-   ```
-
-2. **Restore dependencies**
-   ```bash
-   dotnet restore
-   ```
-
-3. **Configure Azure AD B2C** (Optional for PDF features)
-   Update `wwwroot/appsettings.json`:
-   ```json
-   {
-     "AzureAd": {
-       "ClientId": "your-client-id",
-       "Authority": "https://your-tenant.ciamlogin.com/",
-       "Scopes": ["openid", "profile", "offline_access"]
-     }
-   }
-   ```
-
-4. **Run the application**
-   ```bash
-   dotnet run
-   ```
-
-5. **Access the app**
-   Open your browser to `https://localhost:7229` or `http://localhost:5168`
-
-### Development Commands
+Prerequisites: .NET 10 SDK, Azurite (VS Code extension or Docker), and an account that can sign in to the Entra tenant.
 
 ```bash
-# Build the project
-dotnet build
+# 1. Start Azurite (VS Code: Command Palette → "Azurite: Start Blob Service")
 
-# Run in development mode
+# 2. Backend: http://localhost:7071 (Swagger at /swagger)
+cd backend
 dotnet run
 
-# Publish for production
-dotnet publish -c Release
-
-# Clean build artifacts
-dotnet clean
+# 3. Frontend: http://localhost:5168 (or https://localhost:7229 with the https profile)
+cd frontend
+dotnet run
 ```
 
-## 📱 Application Pages
+On startup, the backend creates the `documents` container in Azurite and configures CORS for the frontend. See [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md) for configuration details and troubleshooting.
 
-### 🏠 Home (`/`)
-- Welcome page with authentication status
-- Quick navigation to main features
-- User profile display for authenticated users
+## Documentation
 
-### 📁 Document Upload (`/docimport`)
-- **Protected Route** (requires authentication)
-- Multi-file drag-and-drop upload
-- Azure Blob Storage integration
-- Real-time progress tracking
-
-### 🔗 PDF Merge (`/pdfmerge`)
-- **Public Route** (no authentication required)
-- Select and combine multiple PDF files
-- File preview and management
-- Download merged document
-
-### 🔄 File Converter (`/fileconvert`)
-- **Public Route** (no authentication required)
-- Convert images to PDF format
-- Batch processing support
-- Individual file downloads
-
-### 🔐 Authentication (`/authentication/*`)
-- Azure AD B2C login/logout flows
-- Token management
-- Redirect handling
-
-## 🏗️ Architecture
-
-### Project Structure
-```
-UploaderDoc/
-├── Components/          # Reusable UI components
-├── Layout/             # Application layout components
-├── Pages/              # Razor pages/components
-├── Services/           # Business logic and API services
-├── Authentication/     # Auth configuration
-├── wwwroot/           # Static files and configuration
-└── Properties/        # Launch settings
-```
-
-### Key Services
-
-#### `IPdfMergeService`
-- Combines multiple PDF streams into a single document
-- Uses iText7 for PDF manipulation
-- Optimized for WebAssembly environment
-
-#### `IFileConverterService`
-- Converts image files to PDF format
-- Supports multiple image formats
-- A4 page sizing with automatic scaling
-
-#### `IDocumentUploadService`
-- Handles file uploads to Azure Blob Storage
-- SAS token management
-- Progress tracking
-
-## 🔧 Configuration
-
-### Application Settings
-The app supports multiple environment configurations:
-
-- `appsettings.json` - Base configuration
-- `appsettings.Development.json` - Development overrides
-- `appsettings.Production.json` - Production overrides
-
-### Azure AD B2C Setup
-1. Create an Azure AD B2C tenant
-2. Register a Single Page Application (SPA)
-3. Configure redirect URIs
-4. Update `appsettings.json` with tenant details
-
-### Azure Blob Storage (Optional)
-1. Create an Azure Storage Account
-2. Set up a container for document storage
-3. Configure SAS token generation API
-4. Update blob storage settings
-
-## 🚀 Deployment
-
-### Azure Static Web Apps
-The application is configured for Azure Static Web Apps deployment:
-
-1. **GitHub Actions**: Automated CI/CD pipeline
-2. **Build Configuration**: .NET 9.0 build process
-3. **Static Files**: Optimized for CDN delivery
-4. **API Integration**: Azure Functions backend (optional)
-
-### Manual Deployment
-```bash
-# Build for production
-dotnet publish -c Release -o ./publish
-
-# Deploy the contents of ./publish/wwwroot/
-```
-
-## 🔒 Security Features
-
-- **Authentication**: Azure AD B2C integration
-- **Authorization**: Role-based access control
-- **Token Management**: Secure token storage and refresh
-- **Input Validation**: Client and server-side validation
-- **File Type Validation**: Whitelist-based file filtering
-- **Size Limits**: Configurable file size restrictions
-
-## 📊 Performance Optimizations
-
-- **WebAssembly**: Client-side processing for PDF operations
-- **Lazy Loading**: Component-based lazy loading
-- **Memory Management**: Proper stream disposal in WebAssembly
-- **Caching**: Browser caching for static assets
-- **Compression**: Gzip compression for published assets
-
-## 🧪 Testing
-
-The application includes comprehensive error handling and validation:
-
-- **File validation**: Format and size checking
-- **Stream management**: Proper resource disposal
-- **Error boundaries**: Graceful error handling
-- **Console logging**: Detailed debugging information
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🎯 Roadmap
-
-### Planned Features
-- [ ] Bulk file operations
-- [ ] PDF annotation tools
-- [ ] Document templates
-- [ ] OCR integration
-- [ ] Collaborative editing
-- [ ] Mobile app (MAUI)
-
-### Technical Improvements
-- [ ] Unit test coverage
-- [ ] Integration tests
-- [ ] Performance monitoring
-- [ ] Docker containerization
-- [ ] Kubernetes deployment
-
-## 📞 Support
-
-For questions, issues, or contributions:
-
-- **GitHub Issues**: [Report bugs or request features](https://github.com/manishmawat/doc-uploader/issues)
-- **Documentation**: Check the inline code documentation
-- **Community**: Join discussions in GitHub Discussions
-
-## 🙏 Acknowledgments
-
-- [Microsoft FluentUI](https://github.com/microsoft/fluentui) - Design system
-- [iText7](https://github.com/itext/itext7-dotnet) - PDF processing library
-- [Blazor WebAssembly](https://docs.microsoft.com/en-us/aspnet/core/blazor/) - Framework
-- [Azure Static Web Apps](https://azure.microsoft.com/en-us/services/app-service/static/) - Hosting platform
-
----
-
-Built with ❤️ using Blazor WebAssembly and Microsoft FluentUI
+| Guide | Contents |
+|---|---|
+| [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md) | Running both apps with Azurite, configuration files, troubleshooting |
+| [docs/AZURE_SETUP.md](docs/AZURE_SETUP.md) | Entra ID app registrations and the Azure resources, with commands to recreate them |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | GitHub Actions workflows, secrets, manual deployment, production configuration |
+| [backend/README.md](backend/README.md) | API endpoints, authorization rules, SAS details, backend configuration |
