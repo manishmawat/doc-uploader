@@ -484,7 +484,6 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 frontend/wwwroot/appsettings.Development.json
-frontend/wwwroot/appsettings.Production.json
 frontend/wwwroot/appsettings.dev.json
 
 # Backend local settings and secrets
