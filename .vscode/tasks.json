@@ -27,6 +27,15 @@
 			],
 			"problemMatcher": "$msCompile",
 			"dependsOn": "clean"
+		},
+		{
+			"label": "ng-serve",
+			"detail": "Angular My Documents app on http://localhost:4200 (hosted by /mydocuments)",
+			"type": "npm",
+			"script": "start",
+			"path": "ng-app",
+			"isBackground": true,
+			"problemMatcher": []
 		}
 	]
 }

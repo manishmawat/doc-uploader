@@ -1,0 +1,76 @@
+@page "/mydocuments"
+@using Microsoft.Extensions.Options
+@using UploaderDoc.Services
+@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
+@inject IAccessTokenProvider AccessTokenProvider
+@inject IOptions<BlobStorageOptions> BlobStorageOptions
+@inject IConfiguration Configuration
+@inject NavigationManager Navigation
+
+<PageTitle>My Documents - UploaderDoc</PageTitle>
+
+@* The My Documents browser is a separate Angular app (ng-app/), served under /ng/.
+   It can't sign in inside an iframe, so this page hands it API tokens via postMessage (wwwroot/js/ngHost.js). *@
+<iframe @ref="frame" src="@appUrl" title="My Documents" class="hosted-app"></iframe>
+
+@code {
+    private ElementReference frame;
+    private IJSObjectReference? module;
+    private DotNetObjectReference<MyDocuments>? selfReference;
+    private string appUrl = "/ng/";
+
+    protected override void OnInitialized()
+    {
+        appUrl = Configuration["AngularApp:Url"] ?? appUrl;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        var appOrigin = new Uri(Navigation.ToAbsoluteUri(appUrl).GetLeftPart(UriPartial.Authority)).ToString().TrimEnd('/');
+        selfReference = DotNetObjectReference.Create(this);
+        module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/ngHost.js");
+        await module.InvokeVoidAsync("start", frame, selfReference, appOrigin);
+    }
+
+    /// <summary>
+    /// Called by ngHost.js when the hosted app asks for a token for the backend API
+    /// </summary>
+    [JSInvokable]
+    public async Task<HostToken> GetToken()
+    {
+        var tokenResult = await AccessTokenProvider.RequestAccessToken(new AccessTokenRequestOptions
+        {
+            Scopes = BlobStorageOptions.Value.Scopes
+        });
+
+        if (tokenResult.TryGetToken(out var token))
+            return new HostToken(token.Value, token.Expires);
+
+        // Consent or sign-in is needed; that redirect must happen in this (top-level) window
+        if (tokenResult.InteractiveRequestUrl is { } loginPath && tokenResult.InteractionOptions is { } options)
+            Navigation.NavigateToLogin(loginPath, options);
+        throw new InvalidOperationException("Sign-in is required.");
+    }
+
+    public record HostToken(string AccessToken, DateTimeOffset ExpiresOn);
+
+    public async ValueTask DisposeAsync()
+    {
+        if (module is not null)
+        {
+            try
+            {
+                await module.InvokeVoidAsync("stop");
+                await module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+        selfReference?.Dispose();
+    }
+}

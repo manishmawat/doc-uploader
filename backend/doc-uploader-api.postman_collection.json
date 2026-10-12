@@ -432,6 +432,149 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "My Documents",
+      "item": [
+        {
+          "name": "List My Documents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/Documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Documents"
+              ]
+            },
+            "description": "Lists the signed-in user's documents, newest first"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var docs = pm.response.json();",
+                  "if (docs.length > 0) {",
+                  "    pm.collectionVariables.set('document_name', docs[0].name);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Download URL",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/Documents/{{document_name}}/download-url",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Documents",
+                "{{document_name}}",
+                "download-url"
+              ]
+            },
+            "description": "Read-only SAS URL for one document (expires in 5 minutes)"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has url', function () {",
+                  "    pm.expect(pm.response.json()).to.have.property('url');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Download URL - Path Traversal Rejected",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/Documents/..%2Fother%40example.com%2Ffile.pdf/download-url",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Documents",
+                "..%2Fother%40example.com%2Ffile.pdf",
+                "download-url"
+              ]
+            },
+            "description": "A name outside the user's folder is rejected"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Document",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/Documents/{{document_name}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Documents",
+                "{{document_name}}"
+              ]
+            },
+            "description": "Deletes one document; 404 if it doesn't exist"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [
@@ -479,6 +622,12 @@
     },
     {
       "key": "blob_path",
+      "value": "",
+      "type": "string",
+      "disabled": false
+    },
+    {
+      "key": "document_name",
       "value": "",
       "type": "string",
       "disabled": false

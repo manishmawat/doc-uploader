@@ -4,6 +4,7 @@ Run the frontend and backend on your machine, with Azurite emulating Azure Blob 
 
 ## Prerequisites
 
+- **Node.js LTS** and npm, for the Angular app in `ng-app/` (only needed for the *My Documents* tab).
 - **.NET 10 SDK.** `global.json` pins 10.0.x (`rollForward: latestFeature`).
 - **Azurite**, from either:
   - the VS Code extension *Azurite* (`azurite.azurite`), or
@@ -42,6 +43,18 @@ Run the frontend and backend on your machine, with Azurite emulating Azure Blob 
    ```bash
    az storage blob list -c documents --connection-string "UseDevelopmentStorage=true" --query "[].name" -o tsv
    ```
+
+5. **(Optional) Start the Angular app for *My Documents*.**
+   ```bash
+   cd ng-app
+   npm install         # first time only
+   npm start           # http://localhost:4200
+   ```
+   Or run the VS Code task **ng-serve**. Then open *My Documents* in the Blazor app. Locally, `AngularApp:Url` in `frontend/wwwroot/appsettings.json` points the iframe at `http://localhost:4200/`, and the Angular dev build calls the API at `http://localhost:7071` and accepts tokens from the Blazor dev origins (`ng-app/src/environments/environment.development.ts`).
+
+   Opening http://localhost:4200 directly only shows "Open this page from the Document Uploader app". That's expected, because tokens come from the Blazor host.
+
+   Tests: `npx ng test --watch=false`.
 
 ### Alternative: API and Azurite in Docker
 
@@ -95,6 +108,7 @@ To allow the frontend on another port, add its origin to `Cors:AllowedOrigins` i
 | Upload fails with **403 Forbidden** from the API | The token is valid but lacks the `SASKey.Write` scope. Check the API permission and admin consent on the SPA registration. |
 | Upload fails with **"File type '.xyz' is not allowed"** | The extension isn't in `BlobUpload:AllowedExtensions`. The upload page also only offers images (`Accept="image/*"`). |
 | `dotnet build` fails with **"file is locked by: DocUploaderApi"** | The backend is still running. Stop it, then build. |
+| *My Documents* says **"The host app did not provide an access token"** | The Blazor origin isn't in `hostOrigins` in `ng-app/src/environments/environment.development.ts`, or `AngularApp:Url` doesn't match where `ng serve` runs. |
 | Sign-in fails with **AADSTS50011** | The redirect URI isn't registered. Add `<origin>/authentication/login-callback` to the SPA registration. |
 | Sign-in fails with **AADSTS50105** | The user isn't assigned to the enterprise application. Assign the user, or turn off *Assignment required*. |
 | Sign-in fails with **AADSTS65001** | Admin consent for `SASKey.Write` is missing. |

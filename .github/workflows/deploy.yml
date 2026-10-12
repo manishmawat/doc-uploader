@@ -35,6 +35,24 @@ jobs:
       - name: Publish
         run: dotnet publish frontend/UploaderDoc.csproj --configuration Release --no-build --output ${{ github.workspace }}/publish
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: npm
+          cache-dependency-path: ng-app/package-lock.json
+
+      - name: Build Angular app (My Documents)
+        working-directory: ng-app
+        run: |
+          npm ci
+          npm run build -- --configuration production
+
+      - name: Add Angular app to the site under /ng/
+        run: |
+          mkdir -p ${{ github.workspace }}/publish/wwwroot/ng
+          cp -r ng-app/dist/ng-app/browser/. ${{ github.workspace }}/publish/wwwroot/ng/
+
       - name: Deploy to Static Web Apps
         id: deploy
         uses: Azure/static-web-apps-deploy@v1

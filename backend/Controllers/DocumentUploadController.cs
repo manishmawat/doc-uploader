@@ -1,3 +1,4 @@
+using DocUploaderApi.Extensions;
 using DocUploaderApi.Models;
 using DocUploaderApi.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -86,7 +87,7 @@ public class DocumentUploadController : ControllerBase
             }
 
             // Get user identifier from claims
-            var userIdentifier = GetUserIdentifier();
+            var userIdentifier = User.GetUserIdentifier();
             if (string.IsNullOrEmpty(userIdentifier))
             {
                 _logger.LogWarning("Could not extract user identifier from token");
@@ -171,7 +172,7 @@ public class DocumentUploadController : ControllerBase
             var confirmation = await _blobStorageService.ConfirmUploadAsync(blobPath, cancellationToken);
 
             _logger.LogInformation("Upload confirmed for blob path {BlobPath} by user {User}",
-                blobPath, GetUserIdentifier());
+                blobPath, User.GetUserIdentifier());
 
             return Ok(confirmation);
         }
@@ -206,37 +207,11 @@ public class DocumentUploadController : ControllerBase
         var userInfo = new
         {
             UserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value,
-            Email = GetUserIdentifier(),
+            Email = User.GetUserIdentifier(),
             Name = User.FindFirst(ClaimTypes.Name)?.Value,
             Claims = User.Claims.Select(c => new { Type = c.Type, Value = c.Value }).ToList()
         };
 
         return Ok(userInfo);
-    }
-
-    /// <summary>
-    /// Extracts user identifier from JWT claims
-    /// Tries multiple common claim types used by Azure AD/Entra
-    /// </summary>
-    private string? GetUserIdentifier()
-    {
-        // Try common claim types in order of preference
-        var claimTypes = new[]
-        {
-            "email",               // Entra ID optional claim (real address for guests)
-            ClaimTypes.Email,      // Standard email claim (mapped)
-            "preferred_username",  // Entra ID UPN (user_domain#EXT#@tenant for guests)
-            "emails",              // Some configurations
-            ClaimTypes.NameIdentifier, // User ID as fallback
-        };
-
-        foreach (var claimType in claimTypes)
-        {
-            var value = User.FindFirst(claimType)?.Value;
-            if (!string.IsNullOrEmpty(value))
-                return value;
-        }
-
-        return null;
     }
 }

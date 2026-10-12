@@ -34,6 +34,40 @@ public interface IBlobStorageService
     Task<UploadConfirmationResponse> ConfirmUploadAsync(
         string blobPath, 
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lists the documents in the user's folder
+    /// </summary>
+    /// <param name="userIdentifier">User email or ID that owns the folder</param>
+    /// <param name="cancellationToken"></param>
+    /// <returns>Documents, newest first</returns>
+    Task<IReadOnlyList<DocumentItem>> ListUserDocumentsAsync(
+        string userIdentifier,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Generates a short-lived read-only SAS for one of the user's documents
+    /// </summary>
+    /// <param name="userIdentifier">User email or ID that owns the folder</param>
+    /// <param name="name">File name relative to the user's folder</param>
+    /// <param name="cancellationToken"></param>
+    /// <returns>Download URL, or null when the document doesn't exist</returns>
+    Task<DownloadUrlResponse?> GenerateDownloadSasAsync(
+        string userIdentifier,
+        string name,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes one of the user's documents
+    /// </summary>
+    /// <param name="userIdentifier">User email or ID that owns the folder</param>
+    /// <param name="name">File name relative to the user's folder</param>
+    /// <param name="cancellationToken"></param>
+    /// <returns>True if the document existed and was deleted</returns>
+    Task<bool> DeleteUserDocumentAsync(
+        string userIdentifier,
+        string name,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
