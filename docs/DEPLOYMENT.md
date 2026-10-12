@@ -13,7 +13,7 @@ The Azure resources themselves are described in [AZURE_SETUP.md](AZURE_SETUP.md)
 
 | Workflow | Triggers | What it does |
 |---|---|---|
-| **Deploy to Azure Static Web Apps** (`deploy.yml`) | Push to `main`; pull requests to `main` | Builds and publishes `frontend/UploaderDoc.csproj` and uploads `publish/wwwroot` to the Static Web App. For a pull request it deploys a **preview environment** and comments the URL on the PR. |
+| **Deploy to Azure Static Web Apps** (`deploy.yml`) | Push to `main`; pull requests to `main` | Builds and publishes `frontend/UploaderDoc.csproj`, builds the Angular app in `ng-app/` and copies it into `publish/wwwroot/ng/`, then uploads `publish/wwwroot` to the Static Web App. For a pull request it deploys a **preview environment** and comments the URL on the PR. |
 | **Deploy Backend API** (`deploy-backend.yml`) | Push to `main` touching `backend/**`, `global.json` or the workflow file; manual (*Run workflow*) | Publishes `backend/DocUploaderApi.csproj`, signs in with OIDC, deploys to `doc-uploader-dev-api`, then polls `/health`. |
 | **Deploy Infrastructure and App with azd** (`deploy-azd.yml`) | Push to `main`/`develop` touching `azure.yaml` or `infra/**`; manual | Runs `azd provision` + `azd deploy` for the Static Web App and storage. **Currently failing** at packaging: `azure.yaml` sets `dist: bin/Release/net10.0/publish/wwwroot`, but azd publishes to a temporary folder. It isn't needed for the current deployment. |
 | **Azure Static Web Apps CI/CD** (`azure-static-web-apps-delightful-forest-0c569ca0f.yml`) | Disabled in GitHub | Legacy workflow for an older Static Web App. Keep it disabled or delete it. |

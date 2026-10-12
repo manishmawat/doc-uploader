@@ -187,6 +187,88 @@ public class BlobStorageService : IBlobStorageService
         }
     }
 
+    public async Task<IReadOnlyList<DocumentItem>> ListUserDocumentsAsync(
+        string userIdentifier,
+        CancellationToken cancellationToken = default)
+    {
+        var prefix = $"{SanitizePath(userIdentifier)}/";
+        var documents = new List<DocumentItem>();
+
+        await foreach (var blob in _containerClient.GetBlobsAsync(
+            prefix: prefix, cancellationToken: cancellationToken))
+        {
+            documents.Add(new DocumentItem
+            {
+                Name = blob.Name[prefix.Length..],
+                SizeBytes = blob.Properties.ContentLength ?? 0,
+                ContentType = blob.Properties.ContentType,
+                LastModified = blob.Properties.LastModified
+            });
+        }
+
+        return documents.OrderByDescending(d => d.LastModified).ToList();
+    }
+
+    public async Task<DownloadUrlResponse?> GenerateDownloadSasAsync(
+        string userIdentifier,
+        string name,
+        CancellationToken cancellationToken = default)
+    {
+        var blobClient = GetUserBlobClient(userIdentifier, name);
+        if (!await blobClient.ExistsAsync(cancellationToken))
+            return null;
+
+        var sasBuilder = new BlobSasBuilder
+        {
+            BlobContainerName = _containerClient.Name,
+            BlobName = blobClient.Name,
+            ExpiresOn = DateTimeOffset.UtcNow.AddMinutes(DownloadSasExpirationMinutes),
+            ContentDisposition = $"attachment; filename=\"{name}\""
+        };
+        sasBuilder.SetPermissions(BlobSasPermissions.Read);
+
+        var sasUri = await SignSasAsync(blobClient, sasBuilder, cancellationToken);
+
+        _logger.LogInformation("Generated download SAS for user {User} file {File}", userIdentifier, name);
+
+        return new DownloadUrlResponse
+        {
+            Url = sasUri,
+            ExpiresAt = sasBuilder.ExpiresOn.UtcDateTime
+        };
+    }
+
+    public async Task<bool> DeleteUserDocumentAsync(
+        string userIdentifier,
+        string name,
+        CancellationToken cancellationToken = default)
+    {
+        var blobClient = GetUserBlobClient(userIdentifier, name);
+        var response = await blobClient.DeleteIfExistsAsync(cancellationToken: cancellationToken);
+
+        if (response.Value)
+            _logger.LogInformation("Deleted blob {BlobPath} for user {User}", blobClient.Name, userIdentifier);
+
+        return response.Value;
+    }
+
+    /// <summary>
+    /// Read-only download links are short-lived; the browser follows them immediately
+    /// </summary>
+    private const int DownloadSasExpirationMinutes = 5;
+
+    /// <summary>
+    /// Resolves a file name inside the user's own folder. Upload stores sanitized names,
+    /// so anything that changes under sanitization (slashes, "..") can't be a user's file.
+    /// </summary>
+    private BlobClient GetUserBlobClient(string userIdentifier, string name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name != SanitizePath(name))
+            throw new ArgumentException("Invalid document name", nameof(name));
+
+        return _containerClient.GetBlobClient($"{SanitizePath(userIdentifier)}/{name}");
+    }
+
     /// <summary>
     /// Sanitizes path segments to prevent directory traversal and special characters
     /// </summary>

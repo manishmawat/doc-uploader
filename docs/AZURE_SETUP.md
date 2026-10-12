@@ -56,7 +56,7 @@ The frontend reads `AzureAd:ClientId`, `AzureAd:Authority` and `BlobStorage:ApiS
 | `doc-uploader-dev-asp` | App Service plan, Linux **F1 (Free)** | Canada Central | The subscription has no F1 quota in East US 2, hence Canada Central. |
 | `doc-uploader-dev-api` | Web App, `DOTNETCORE:10.0`, HTTPS only | Canada Central | System-assigned managed identity with **Storage Blob Data Contributor** on `docuploaderdevstorage` |
 
-The API signs upload SAS tokens with a **user delegation key** obtained through its managed identity, so no storage account key is stored anywhere. *Storage Blob Data Contributor* includes the permission needed to request that key.
+The API signs upload SAS tokens with a **user delegation key** obtained through its managed identity, so no storage account key is stored anywhere. *Storage Blob Data Contributor* includes the permission needed to request that key, and the list and delete permissions used by the *My Documents* endpoints (`/api/Documents`).
 
 Free tier limits: 60 CPU-minutes per day, and the app sleeps when idle, so the first request after a break can take 10–20 seconds. For always-on hosting, scale the plan up: `az appservice plan update -n doc-uploader-dev-asp -g rg-uploaderapp-dev --sku B1`.
 

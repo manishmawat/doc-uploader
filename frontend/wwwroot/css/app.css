@@ -30,6 +30,14 @@ body {
     width: 100%;
 }
 
+/* Embedded app (Pages/MyDocuments.razor) fills the content area below the header */
+.hosted-app {
+    display: block;
+    width: 100%;
+    height: calc(100dvh - 86px - 1rem);
+    border: none;
+}
+
 footer {
     background: var(--neutral-layer-4);
     color: var(--neutral-foreground-rest);

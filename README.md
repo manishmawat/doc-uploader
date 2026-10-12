@@ -10,6 +10,7 @@ A Blazor WebAssembly app for uploading documents to Azure Blob Storage and worki
 | Page | What it does | Sign-in |
 |---|---|---|
 | **Upload Documents** (`/docimport`) | Two-step upload. Select up to 4 files (10 MB each) and review the list, then confirm. Each file shows its status, and failed uploads can be retried. Files are stored under a folder named after the signed-in user's email. | Required |
+| **My Documents** (`/mydocuments`) | List, download and delete your own uploaded files. This tab is a separate **Angular** app (`ng-app/`) embedded in an iframe; see [Embedded Angular app](#embedded-angular-app). | Required |
 | **PDF Merge** (`/pdfmerge`) | Combine up to 10 PDFs (50 MB each) into one, in the order selected. | No |
 | **File to PDF** (`/fileconvert`) | Convert up to 20 images (JPEG, PNG, BMP, TIFF, WEBP) into A4 PDFs. | No |
 | **PDF Optimizer** (`/pdfoptimize`) | Reduce PDF file size. | No |
@@ -33,6 +34,21 @@ PDF merge, conversion and optimization run entirely in the browser (iText7 on We
 
 The API never handles file contents. It only decides *where* a user may write and signs a short-lived URL for exactly that blob, so a user can't write into another user's folder.
 
+## Embedded Angular app
+
+The *My Documents* tab is an Angular app that is built into `/ng/` on the same Static Web App and shown in an iframe by `frontend/Pages/MyDocuments.razor`, so the Blazor nav and header stay visible.
+
+Entra ID's sign-in page can't load inside an iframe, so the Angular app doesn't sign in itself. It asks the Blazor host for a token instead:
+
+```
+ Angular (iframe, /ng/)                 Blazor host (/mydocuments)              Backend API
+ postMessage {type:'token-request'} ──▶ IAccessTokenProvider (SASKey.Write)
+                                   ◀── postMessage {type:'token', accessToken, expiresOn}
+ GET/DELETE /api/Documents… with Bearer token ─────────────────────────────▶ scoped to <email>/
+```
+
+Both sides only accept messages from the expected window and origin. Downloads use a 5-minute read-only SAS URL from `GET /api/Documents/{name}/download-url`.
+
 ## Repository layout
 
 ```
@@ -40,8 +56,9 @@ frontend/                 Blazor WebAssembly app (UploaderDoc.csproj)
   Pages/                  Docimport, PdfMerge, FileConverter, PdfOptimize, Authentication
   Services/               DocumentUploadService (calls the API) and the PDF services
   wwwroot/                appsettings.json (local), appsettings.Production.json, staticwebapp.config.json
+ng-app/                   Angular app for the My Documents tab, deployed to /ng/
 backend/                  ASP.NET Core Web API (DocUploaderApi.csproj)
-  Controllers/            DocumentUploadController
+  Controllers/            DocumentUploadController, DocumentsController (list/download/delete)
   Services/               BlobStorageService (SAS generation, validation)
   docker-compose.yml      Optional: API + Azurite in containers
 infra/                    Bicep for the Static Web App and storage account (used by deploy-azd.yml)
@@ -55,6 +72,7 @@ global.json               Pins the .NET 10 SDK
 
 - **.NET 10** (SDK pinned in `global.json`)
 - **Frontend:** Blazor WebAssembly, Microsoft FluentUI Blazor 4.13, MSAL (`Microsoft.Authentication.WebAssembly.Msal`), Azure.Storage.Blobs, iText7
+- **Embedded app:** Angular 22 (standalone, zoneless, signals)
 - **Backend:** ASP.NET Core Web API, Microsoft.Identity.Web 4.16, Azure.Storage.Blobs, Azure.Identity, Serilog, Swagger (Development only)
 - **Azure:** Static Web Apps (frontend), App Service on Linux (API), Blob Storage, Entra ID
 - **Local storage emulator:** Azurite

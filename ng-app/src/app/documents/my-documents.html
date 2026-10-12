@@ -1,0 +1,59 @@
+<header class="page-header">
+  <h1>My Documents</h1>
+  @if (auth.isFramed) {
+    <button type="button" class="btn" (click)="refresh()" [disabled]="loading()">Refresh</button>
+  }
+</header>
+
+@if (!auth.isFramed) {
+  <p class="notice">Open this page from the Document Uploader app's <strong>My Documents</strong> tab.</p>
+} @else {
+  @if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  }
+
+  @if (loading() && documents().length === 0) {
+    <p class="muted">Loading your documents…</p>
+  } @else if (documents().length === 0 && !error()) {
+    <p class="muted">You haven't uploaded any documents yet.</p>
+  } @else if (documents().length > 0) {
+    <table class="documents">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th class="num">Size</th>
+          <th>Last modified</th>
+          <th class="actions"><span class="visually-hidden">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (doc of documents(); track doc.name) {
+          <tr>
+            <td class="name">{{ doc.name }}</td>
+            <td class="num">{{ formatSize(doc.sizeBytes) }}</td>
+            <td>{{ doc.lastModified | date: 'medium' }}</td>
+            <td class="actions">
+              @if (confirmingDelete() === doc.name) {
+                <span>Delete?</span>
+                <button type="button" class="btn danger" (click)="delete(doc)">Yes</button>
+                <button type="button" class="btn" (click)="confirmingDelete.set(null)">No</button>
+              } @else {
+                <button type="button" class="btn" (click)="download(doc)" [disabled]="busy() === doc.name">
+                  Download
+                </button>
+                <button
+                  type="button"
+                  class="btn"
+                  (click)="confirmingDelete.set(doc.name)"
+                  [disabled]="busy() === doc.name"
+                >
+                  Delete
+                </button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+}

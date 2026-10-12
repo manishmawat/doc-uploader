@@ -98,3 +98,45 @@ public class ErrorResponse
     /// </summary>
     public string? RequestId { get; set; }
 }
+
+/// <summary>
+/// A document stored in the signed-in user's folder
+/// </summary>
+public class DocumentItem
+{
+    /// <summary>
+    /// File name relative to the user's folder
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Size in bytes
+    /// </summary>
+    public long SizeBytes { get; set; }
+
+    /// <summary>
+    /// Content type recorded on the blob, if any
+    /// </summary>
+    public string? ContentType { get; set; }
+
+    /// <summary>
+    /// Last modified time in UTC
+    /// </summary>
+    public DateTimeOffset? LastModified { get; set; }
+}
+
+/// <summary>
+/// Response model containing a short-lived read-only download URL
+/// </summary>
+public class DownloadUrlResponse
+{
+    /// <summary>
+    /// Blob URI with an embedded read-only SAS
+    /// </summary>
+    public Uri Url { get; set; } = null!;
+
+    /// <summary>
+    /// SAS expiration time in UTC
+    /// </summary>
+    public DateTime ExpiresAt { get; set; }
+}
