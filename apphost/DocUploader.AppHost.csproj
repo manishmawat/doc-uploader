@@ -1,0 +1,22 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.6.1">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- Runs with `dotnet run` / F5; the Aspire CLI bundle is optional (`aspire run` also works) -->
+    <NoWarn>$(NoWarn);ASPIRE010</NoWarn>
+    <UserSecretsId>5f0c8a4e-6b1d-4f7e-9a3c-2d8e1b7c4a90</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.6.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\backend\DocUploaderApi.csproj" />
+    <ProjectReference Include="..\frontend\UploaderDoc.csproj" />
+  </ItemGroup>
+
+</Project>

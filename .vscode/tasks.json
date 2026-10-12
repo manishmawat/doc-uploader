@@ -36,6 +36,14 @@
 			"path": "ng-app",
 			"isBackground": true,
 			"problemMatcher": []
+		},
+		{
+			"label": "dev: all",
+			"detail": "API, Blazor app and Angular app together (npm run dev); terminate the task to stop all three",
+			"type": "npm",
+			"script": "dev",
+			"isBackground": true,
+			"problemMatcher": []
 		}
 	]
 }

@@ -4,6 +4,9 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
+  <Folder Name="/apphost/">
+    <Project Path="apphost/DocUploader.AppHost.csproj" />
+  </Folder>
   <Folder Name="/backend/">
     <Project Path="backend/DocUploaderApi.csproj" />
   </Folder>
