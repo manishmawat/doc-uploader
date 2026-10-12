@@ -57,6 +57,8 @@ frontend/                 Blazor WebAssembly app (UploaderDoc.csproj)
   Services/               DocumentUploadService (calls the API) and the PDF services
   wwwroot/                appsettings.json (local), appsettings.Production.json, staticwebapp.config.json
 ng-app/                   Angular app for the My Documents tab, deployed to /ng/
+apphost/                  Aspire AppHost: starts API + Blazor + Angular locally with a dashboard (dev only)
+package.json              Root dev scripts: `npm run dev` starts all three apps (see docs/LOCAL_DEVELOPMENT.md)
 backend/                  ASP.NET Core Web API (DocUploaderApi.csproj)
   Controllers/            DocumentUploadController, DocumentsController (list/download/delete)
   Services/               BlobStorageService (SAS generation, validation)
@@ -72,6 +74,7 @@ global.json               Pins the .NET 10 SDK
 
 - **.NET 10** (SDK pinned in `global.json`)
 - **Frontend:** Blazor WebAssembly, Microsoft FluentUI Blazor 4.13, MSAL (`Microsoft.Authentication.WebAssembly.Msal`), Azure.Storage.Blobs, iText7
+- **Local orchestration:** `npm run dev` (concurrently) or Aspire 13 AppHost; not used in deployment
 - **Embedded app:** Angular 22 (standalone, zoneless, signals)
 - **Backend:** ASP.NET Core Web API, Microsoft.Identity.Web 4.16, Azure.Storage.Blobs, Azure.Identity, Serilog, Swagger (Development only)
 - **Azure:** Static Web Apps (frontend), App Service on Linux (API), Blob Storage, Entra ID

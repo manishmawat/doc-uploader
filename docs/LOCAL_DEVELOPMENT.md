@@ -11,7 +11,22 @@ Run the frontend and backend on your machine, with Azurite emulating Azure Blob 
   - Docker: `docker compose up azurite` in `backend/`
 - **An account in tenant `bc4e51bb-2207-4ec4-9d25-57c74d363241`**, either a member or an invited guest assigned to the app (see [AZURE_SETUP.md](AZURE_SETUP.md)).
 
-## Run
+## Quick start
+
+1. **Start Azurite** (VS Code: Command Palette → *Azurite: Start Blob Service*, or `cd backend && docker compose up azurite`).
+2. **Install dependencies once:** `npm run setup` in the repo root. It installs `concurrently` and the `ng-app` packages.
+3. **Start all three apps** with one of these. Either way, **Ctrl+C stops all of them**.
+
+   | Command | What you get |
+   |---|---|
+   | `npm run dev` | API, Blazor app and Angular app in one terminal, with `[api]` `[web]` `[ng]` log prefixes. If one of them exits, the others stop too. Also available as the VS Code task **dev: all**. |
+   | `dotnet run --project apphost` (or `npm run dev:aspire`, `aspire run`, or F5 on *DocUploader.AppHost*) | The same three apps, started by **Aspire**, plus a dashboard at https://localhost:17250 that shows each app's status, URL and console logs, with a restart button. The login link is printed in the console. |
+
+4. Open https://localhost:7229, sign in, and use *Upload Documents* and *My Documents*.
+
+Both runners use the fixed ports below, so the CORS origins and app settings don't change: API on 7071, Blazor on 7229 and 5168, Angular on 4200. Neither one starts Azurite.
+
+## Run each part separately
 
 1. **Start Azurite.**
    - VS Code: Command Palette → *Azurite: Start Blob Service*. It listens on `127.0.0.1:10000` and writes its data files (`__azurite_db_*.json`, `__blobstorage__/`) to the workspace root. Both are git-ignored.
@@ -107,6 +122,7 @@ To allow the frontend on another port, add its origin to `Cors:AllowedOrigins` i
 | Upload fails with **"Unauthorized access … API says: Bearer error=…"** | The API rejected the access token. The text after `API says:` names the failed check, and the backend console has the detailed `IDX…` message (full values are shown in Development). Common causes: wrong `Audience`/`ClientId` in backend settings, or the user hasn't consented to `SASKey.Write` (sign out and back in). |
 | Upload fails with **403 Forbidden** from the API | The token is valid but lacks the `SASKey.Write` scope. Check the API permission and admin consent on the SPA registration. |
 | Upload fails with **"File type '.xyz' is not allowed"** | The extension isn't in `BlobUpload:AllowedExtensions`. The upload page also only offers images (`Accept="image/*"`). |
+| `npm run dev` or the AppHost fails with **"address already in use"** on 7071, 7229 or 4200 | An earlier instance is still running, for example a `dotnet run` in another terminal. Stop it (`netstat -ano \| findstr :7071` shows the PID), then start again. |
 | `dotnet build` fails with **"file is locked by: DocUploaderApi"** | The backend is still running. Stop it, then build. |
 | *My Documents* says **"The host app did not provide an access token"** | The Blazor origin isn't in `hostOrigins` in `ng-app/src/environments/environment.development.ts`, or `AngularApp:Url` doesn't match where `ng serve` runs. |
 | Sign-in fails with **AADSTS50011** | The redirect URI isn't registered. Add `<origin>/authentication/login-callback` to the SPA registration. |

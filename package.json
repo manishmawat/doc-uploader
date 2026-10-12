@@ -1,0 +1,16 @@
+{
+  "name": "doc-uploader-dev",
+  "private": true,
+  "description": "Local dev runner: starts the API, the Blazor app and the Angular app together",
+  "scripts": {
+    "setup": "npm install && npm install --prefix ng-app",
+    "dev": "concurrently -k -n api,web,ng -c blue,magenta,red \"npm:dev:api\" \"npm:dev:web\" \"npm:dev:ng\"",
+    "dev:api": "dotnet run --project backend",
+    "dev:web": "dotnet run --project frontend --launch-profile https",
+    "dev:ng": "npm start --prefix ng-app",
+    "dev:aspire": "dotnet run --project apphost"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
+}
