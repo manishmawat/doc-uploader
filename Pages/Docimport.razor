@@ -62,7 +62,7 @@
 
         foreach (var file in Files)
         {
-            await DocumentUploadService.UploadDocumentAsync(file.LocalFile!.OpenRead());
+            await DocumentUploadService.UploadDocumentAsync(file.LocalFile!.OpenRead(), file.Name);
         }
 
         // Wait 3 seconds before to reset the progress bar.

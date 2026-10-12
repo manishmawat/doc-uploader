@@ -22,14 +22,14 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
       
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore UploaderDoc.csproj
         
         
       - name: Build
-        run: dotnet publish -c Release -o ./publish
+        run: dotnet publish UploaderDoc.csproj -c Release -o ./publish
         
       - name: Build And Deploy
         id: builddeploy

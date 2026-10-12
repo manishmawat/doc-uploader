@@ -3,6 +3,8 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Components.WebAssembly.Authentication;
+using Microsoft.AspNetCore.Components.Authorization;
+using System.Security.Claims;
 
 namespace UploaderDoc.Services
 {
@@ -11,17 +13,29 @@ namespace UploaderDoc.Services
         private readonly HttpClient _httpClient;
         private readonly BlobStorageOptions blobStorageOptions;
         private readonly IAccessTokenProvider _accessTokenProvider;
-        public DocumentUploadService(HttpClient httpClient, IAccessTokenProvider accessTokenProvider, IOptions<BlobStorageOptions> blobStorageOptions
-        )
+        private readonly AuthenticationStateProvider _authenticationStateProvider;
+        
+        public DocumentUploadService(HttpClient httpClient, IAccessTokenProvider accessTokenProvider, 
+            IOptions<BlobStorageOptions> blobStorageOptions, AuthenticationStateProvider authenticationStateProvider)
         {
             this._httpClient = httpClient;
             this.blobStorageOptions = blobStorageOptions.Value;
             _accessTokenProvider = accessTokenProvider;
+            _authenticationStateProvider = authenticationStateProvider;
         }
-        public async Task UploadDocumentAsync(Stream fileStream)
+        
+        public async Task UploadDocumentAsync(Stream fileStream, string fileName)
         {
             Console.WriteLine("Uploading document...");
-            // Implement your document upload logic here
+            
+            // Get logged-in user's email
+            var userEmail = await GetUserEmailAsync();
+            if (string.IsNullOrEmpty(userEmail))
+                throw new Exception("User is not authenticated");
+            
+            // Sanitize email to use as folder name (replace @ with .)
+            var userFolder = userEmail.Replace("@", ".").Replace(" ", "_");
+            
             var sasInfo = await GetBlobSAS();
 
             var sasUri = new UriBuilder(sasInfo!.BlobUri!)
@@ -29,9 +43,35 @@ namespace UploaderDoc.Services
                 Query = sasInfo.Signature
             };
 
-            var blob = new BlobClient(sasUri.Uri);
-            await blob.UploadAsync(fileStream);
+            // Append user folder and filename to the blob URI
+            var blobPath = $"{userFolder}/{fileName}";
+            var userSpecificUri = new UriBuilder(sasUri.Uri)
+            {
+                Path = $"{sasUri.Uri.AbsolutePath}/{blobPath}",
+                Query = sasInfo.Signature
+            };
 
+            var blob = new BlobClient(userSpecificUri.Uri);
+            await blob.UploadAsync(fileStream, overwrite: true);
+            
+            Console.WriteLine($"Document uploaded to: {blobPath}");
+        }
+        
+        private async Task<string?> GetUserEmailAsync()
+        {
+            var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            
+            if (!user.Identity?.IsAuthenticated ?? false)
+                return null;
+            
+            // Try to get email from claims (Entra ID includes 'email' claim for guests)
+            var email = user.FindFirst("email")?.Value ?? 
+                       user.FindFirst(ClaimTypes.Email)?.Value ??
+                       user.FindFirst("preferred_username")?.Value ??
+                       user.Identity?.Name;
+            
+            return email;
         }
         private async Task<StorageEntitySas?> GetBlobSAS()
         {

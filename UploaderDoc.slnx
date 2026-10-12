@@ -1,0 +1,9 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="../doc-uploader-api/DocUploaderApi.csproj" />
+  <Project Path="UploaderDoc.csproj" />
+</Solution>

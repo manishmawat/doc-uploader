@@ -13,7 +13,8 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 builder.Services.Configure<BlobStorageOptions>(
     builder.Configuration.GetSection(BlobStorageOptions.SectionName));
 
-// Configure MSAL authentication for Azure AD B2C
+// Configure MSAL authentication for Azure AD
+// Access control is managed via Azure AD guest user invitations
 builder.Services.AddMsalAuthentication(options =>
 {
     builder.Configuration.Bind("AzureAd", options.ProviderOptions.Authentication);
