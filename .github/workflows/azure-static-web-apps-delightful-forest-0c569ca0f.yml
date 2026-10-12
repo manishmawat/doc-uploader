@@ -25,11 +25,11 @@ jobs:
           dotnet-version: '10.0.x'
       
       - name: Restore dependencies
-        run: dotnet restore UploaderDoc.csproj
+        run: dotnet restore frontend/UploaderDoc.csproj
         
         
       - name: Build
-        run: dotnet publish UploaderDoc.csproj -c Release -o ./publish
+        run: dotnet publish frontend/UploaderDoc.csproj -c Release -o ./publish
         
       - name: Build And Deploy
         id: builddeploy

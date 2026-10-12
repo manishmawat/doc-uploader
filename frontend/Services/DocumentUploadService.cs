@@ -3,8 +3,6 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Components.WebAssembly.Authentication;
-using Microsoft.AspNetCore.Components.Authorization;
-using System.Security.Claims;
 
 namespace UploaderDoc.Services
 {
@@ -13,67 +11,35 @@ namespace UploaderDoc.Services
         private readonly HttpClient _httpClient;
         private readonly BlobStorageOptions blobStorageOptions;
         private readonly IAccessTokenProvider _accessTokenProvider;
-        private readonly AuthenticationStateProvider _authenticationStateProvider;
-        
-        public DocumentUploadService(HttpClient httpClient, IAccessTokenProvider accessTokenProvider, 
-            IOptions<BlobStorageOptions> blobStorageOptions, AuthenticationStateProvider authenticationStateProvider)
+
+        public DocumentUploadService(HttpClient httpClient, IAccessTokenProvider accessTokenProvider,
+            IOptions<BlobStorageOptions> blobStorageOptions)
         {
             this._httpClient = httpClient;
             this.blobStorageOptions = blobStorageOptions.Value;
             _accessTokenProvider = accessTokenProvider;
-            _authenticationStateProvider = authenticationStateProvider;
         }
-        
+
         public async Task UploadDocumentAsync(Stream fileStream, string fileName)
         {
             Console.WriteLine("Uploading document...");
-            
-            // Get logged-in user's email
-            var userEmail = await GetUserEmailAsync();
-            if (string.IsNullOrEmpty(userEmail))
-                throw new Exception("User is not authenticated");
-            
-            // Sanitize email to use as folder name (replace @ with .)
-            var userFolder = userEmail.Replace("@", ".").Replace(" ", "_");
-            
-            var sasInfo = await GetBlobSAS();
+
+            // The API decides the per-user folder and returns a SAS scoped to that single blob
+            var fileSize = fileStream.CanSeek ? fileStream.Length : (long?)null;
+            var sasInfo = await GetBlobSAS(fileName, fileSize);
 
             var sasUri = new UriBuilder(sasInfo!.BlobUri!)
             {
-                Query = sasInfo.Signature
+                Query = sasInfo.Signature!.TrimStart('?')
             };
 
-            // Append user folder and filename to the blob URI
-            var blobPath = $"{userFolder}/{fileName}";
-            var userSpecificUri = new UriBuilder(sasUri.Uri)
-            {
-                Path = $"{sasUri.Uri.AbsolutePath}/{blobPath}",
-                Query = sasInfo.Signature
-            };
-
-            var blob = new BlobClient(userSpecificUri.Uri);
+            var blob = new BlobClient(sasUri.Uri);
             await blob.UploadAsync(fileStream, overwrite: true);
-            
-            Console.WriteLine($"Document uploaded to: {blobPath}");
+
+            Console.WriteLine($"Document uploaded to: {sasInfo.BlobUri!.AbsolutePath}");
         }
-        
-        private async Task<string?> GetUserEmailAsync()
-        {
-            var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
-            var user = authState.User;
-            
-            if (!user.Identity?.IsAuthenticated ?? false)
-                return null;
-            
-            // Try to get email from claims (Entra ID includes 'email' claim for guests)
-            var email = user.FindFirst("email")?.Value ?? 
-                       user.FindFirst(ClaimTypes.Email)?.Value ??
-                       user.FindFirst("preferred_username")?.Value ??
-                       user.Identity?.Name;
-            
-            return email;
-        }
-        private async Task<StorageEntitySas?> GetBlobSAS()
+
+        private async Task<StorageEntitySas?> GetBlobSAS(string fileName, long? fileSizeBytes)
         {
             try
             {
@@ -97,14 +63,17 @@ namespace UploaderDoc.Services
                     throw new Exception("Failed to acquire access token");
                 }
 
-                // Add Authorization header
-                _httpClient.DefaultRequestHeaders.Authorization =
-                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Value);
-                
                 Console.WriteLine($"Using configured API scope: {blobStorageOptions.ApiScope}");
 
                 // Call your authenticated API
-                var response = await _httpClient.GetAsync(blobStorageOptions.SasApiEndpoint);
+                using var request = new HttpRequestMessage(HttpMethod.Post, blobStorageOptions.SasApiEndpoint)
+                {
+                    Content = JsonContent.Create(new { fileName, fileSizeBytes })
+                };
+                request.Headers.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Value);
+
+                var response = await _httpClient.SendAsync(request);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -117,8 +86,10 @@ namespace UploaderDoc.Services
                 }
                 else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 {
-                    // throw new AccessTokenNotAvailableException();
-                    throw new Exception("Unauthorized access - token may be invalid or expired.");
+                    // The API explains the rejection in WWW-Authenticate (e.g. invalid audience/issuer/signature)
+                    var reason = response.Headers.WwwAuthenticate.ToString();
+                    throw new Exception("Unauthorized access - token may be invalid or expired."
+                        + (string.IsNullOrEmpty(reason) ? string.Empty : $" API says: {reason}"));
                 }
                 else
                 {

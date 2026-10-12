@@ -1,0 +1,487 @@
+{
+  "info": {
+    "_postman_id": "doc-uploader-api-collection",
+    "name": "Document Uploader API",
+    "description": "API for secure document uploads to Azure Blob Storage with SAS tokens",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Get Azure AD Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('token', jsonData.access_token);",
+                  "    console.log('Token set successfully');",
+                  "    console.log('Expires in: ' + jsonData.expires_in + ' seconds');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "client_id",
+                  "value": "{{api_client_id}}"
+                },
+                {
+                  "key": "client_secret",
+                  "value": "{{api_client_secret}}"
+                },
+                {
+                  "key": "grant_type",
+                  "value": "client_credentials"
+                },
+                {
+                  "key": "scope",
+                  "value": "api://{{api_client_id}}/.default"
+                }
+              ]
+            },
+            "url": {
+              "raw": "https://login.microsoftonline.com/{{tenant_id}}/oauth2/v2.0/token",
+              "protocol": "https",
+              "host": [
+                "login",
+                "microsoftonline",
+                "com"
+              ],
+              "path": [
+                "{{tenant_id}}",
+                "oauth2",
+                "v2.0",
+                "token"
+              ]
+            },
+            "description": "Get access token from Azure AD using client credentials flow"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public Endpoints",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/documentupload/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "documentupload",
+                "health"
+              ]
+            },
+            "description": "Check API health status - no authentication required"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "SAS Token Operations",
+      "item": [
+        {
+          "name": "Get SAS Token - Valid PDF",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has required fields', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('blobUri');",
+                  "    pm.expect(jsonData).to.have.property('signature');",
+                  "    pm.expect(jsonData).to.have.property('expiresAt');",
+                  "    pm.expect(jsonData).to.have.property('expiresInSeconds');",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('blob_uri', jsonData.blobUri);",
+                  "    pm.environment.set('sas_signature', jsonData.signature);",
+                  "    pm.environment.set('blob_path', jsonData.blobUri.split('/').pop());",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fileName\": \"document.pdf\",\n  \"fileSizeBytes\": 1024000,\n  \"mimeType\": \"application/pdf\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/documentupload/sas-token",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "documentupload",
+                "sas-token"
+              ]
+            },
+            "description": "Request SAS token for uploading a PDF file"
+          },
+          "response": []
+        },
+        {
+          "name": "Get SAS Token - Valid DOCX",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fileName\": \"report.docx\",\n  \"fileSizeBytes\": 2048000,\n  \"mimeType\": \"application/vnd.openxmlformats-officedocument.wordprocessingml.document\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/documentupload/sas-token",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "documentupload",
+                "sas-token"
+              ]
+            },
+            "description": "Request SAS token for uploading a Word document"
+          },
+          "response": []
+        },
+        {
+          "name": "Get SAS Token - Invalid Extension",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Error message indicates invalid file type', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.include('not allowed');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fileName\": \"malware.exe\",\n  \"fileSizeBytes\": 5000000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/documentupload/sas-token",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "documentupload",
+                "sas-token"
+              ]
+            },
+            "description": "Should fail - EXE files not allowed"
+          },
+          "response": []
+        },
+        {
+          "name": "Get SAS Token - Oversized File",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Error message indicates size exceeded', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.include('exceeds maximum');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fileName\": \"huge_file.pdf\",\n  \"fileSizeBytes\": 500000000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/documentupload/sas-token",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "documentupload",
+                "sas-token"
+              ]
+            },
+            "description": "Should fail - file size exceeds 100MB limit"
+          },
+          "response": []
+        },
+        {
+          "name": "Get SAS Token - No Auth (Should Fail)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fileName\": \"test.pdf\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/documentupload/sas-token",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "documentupload",
+                "sas-token"
+              ]
+            },
+            "description": "Should fail - no authentication token provided"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Upload Operations",
+      "item": [
+        {
+          "name": "Confirm Upload",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has upload metadata', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('blobUri');",
+                  "    pm.expect(jsonData).to.have.property('fileName');",
+                  "    pm.expect(jsonData).to.have.property('fileSizeBytes');",
+                  "    pm.expect(jsonData).to.have.property('uploadedAt');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/documentupload/confirm-upload?blobPath={{blob_path}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "documentupload",
+                "confirm-upload"
+              ],
+              "query": [
+                {
+                  "key": "blobPath",
+                  "value": "{{blob_path}}"
+                }
+              ]
+            },
+            "description": "Confirm that a file was successfully uploaded (call after uploading to blob storage)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "User Information",
+      "item": [
+        {
+          "name": "Get Current User Info",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has user information', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('userId');",
+                  "    pm.expect(jsonData).to.have.property('email');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/documentupload/user-info",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "documentupload",
+                "user-info"
+              ]
+            },
+            "description": "Get information about the currently authenticated user from JWT claims"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://localhost:7071",
+      "type": "string",
+      "disabled": false
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "disabled": false
+    },
+    {
+      "key": "api_client_id",
+      "value": "YOUR_API_CLIENT_ID",
+      "type": "string",
+      "disabled": false
+    },
+    {
+      "key": "api_client_secret",
+      "value": "YOUR_API_CLIENT_SECRET",
+      "type": "string",
+      "disabled": false
+    },
+    {
+      "key": "tenant_id",
+      "value": "YOUR_TENANT_ID",
+      "type": "string",
+      "disabled": false
+    },
+    {
+      "key": "blob_uri",
+      "value": "",
+      "type": "string",
+      "disabled": false
+    },
+    {
+      "key": "sas_signature",
+      "value": "",
+      "type": "string",
+      "disabled": false
+    },
+    {
+      "key": "blob_path",
+      "value": "",
+      "type": "string",
+      "disabled": false
+    }
+  ]
+}

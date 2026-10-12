@@ -79,7 +79,7 @@ jobs:
           echo "DEPLOYMENT_TOKEN=$DEPLOYMENT_TOKEN" >> $GITHUB_ENV
 
       - name: Build .NET project
-        run: dotnet publish UploaderDoc.csproj --configuration Release
+        run: dotnet publish frontend/UploaderDoc.csproj --configuration Release
 
       - name: azd deploy
         run: azd deploy --no-prompt
