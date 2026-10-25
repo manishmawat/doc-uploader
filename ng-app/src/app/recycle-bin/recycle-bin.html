@@ -1,0 +1,66 @@
+<header class="page-header">
+  <h1>Recycle bin</h1>
+  @if (auth.isFramed) {
+    <button type="button" class="btn" (click)="refresh()" [disabled]="loading()">Refresh</button>
+  }
+</header>
+
+@if (!auth.isFramed) {
+  <p class="notice">Open this page from the Document Uploader app's <strong>My Documents</strong> tab.</p>
+} @else {
+  <p class="muted">Deleted documents stay here until the date shown, then they're deleted permanently.</p>
+
+  @if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  }
+  @if (message()) {
+    <p class="banner" role="status">{{ message() }}</p>
+  }
+
+  @if (loading() && items().length === 0) {
+    <p class="muted">Loading the recycle bin…</p>
+  } @else if (items().length === 0 && !error()) {
+    <p class="muted">The recycle bin is empty.</p>
+  } @else if (items().length > 0) {
+    <table class="documents">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th class="num">Size</th>
+          <th>Deleted</th>
+          <th>Deleted permanently</th>
+          <th class="actions"><span class="visually-hidden">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (item of items(); track item.name) {
+          <tr>
+            <td class="name">{{ item.name }}</td>
+            <td class="num">{{ formatSize(item.sizeBytes) }}</td>
+            <td>{{ item.deletedOn | date: 'medium' }}</td>
+            <td>{{ item.purgeOn | date: 'mediumDate' }}</td>
+            <td class="actions">
+              @if (confirmingDelete() === item.name) {
+                <span>Delete forever?</span>
+                <button type="button" class="btn danger" (click)="deleteForever(item)">Yes</button>
+                <button type="button" class="btn" (click)="confirmingDelete.set(null)">No</button>
+              } @else {
+                <button type="button" class="btn" (click)="restore(item)" [disabled]="busy() === item.name">
+                  Restore
+                </button>
+                <button
+                  type="button"
+                  class="btn"
+                  (click)="confirmingDelete.set(item.name)"
+                  [disabled]="busy() === item.name"
+                >
+                  Delete forever
+                </button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+}

@@ -12,6 +12,14 @@
     <p class="error" role="alert">{{ error() }}</p>
   }
 
+  @if (lastDeleted(); as name) {
+    <p class="banner" role="status">
+      Moved <strong>{{ name }}</strong> to the recycle bin.
+      <button type="button" class="link-btn" (click)="undoDelete()">Undo</button>
+      <button type="button" class="link-btn" (click)="lastDeleted.set(null)" aria-label="Dismiss">✕</button>
+    </p>
+  }
+
   @if (loading() && documents().length === 0) {
     <p class="muted">Loading your documents…</p>
   } @else if (documents().length === 0 && !error()) {
@@ -33,25 +41,63 @@
             <td class="num">{{ formatSize(doc.sizeBytes) }}</td>
             <td>{{ doc.lastModified | date: 'medium' }}</td>
             <td class="actions">
-              @if (confirmingDelete() === doc.name) {
-                <span>Delete?</span>
-                <button type="button" class="btn danger" (click)="delete(doc)">Yes</button>
-                <button type="button" class="btn" (click)="confirmingDelete.set(null)">No</button>
-              } @else {
-                <button type="button" class="btn" (click)="download(doc)" [disabled]="busy() === doc.name">
-                  Download
-                </button>
-                <button
-                  type="button"
-                  class="btn"
-                  (click)="confirmingDelete.set(doc.name)"
-                  [disabled]="busy() === doc.name"
-                >
-                  Delete
-                </button>
-              }
+              <button type="button" class="btn" (click)="download(doc)" [disabled]="busy() === doc.name">
+                Download
+              </button>
+              <button
+                type="button"
+                class="btn"
+                (click)="toggleShare(doc)"
+                [attr.aria-expanded]="sharing() === doc.name"
+                [disabled]="busy() === doc.name"
+              >
+                Share
+              </button>
+              <button type="button" class="btn" (click)="delete(doc)" [disabled]="busy() === doc.name">
+                Delete
+              </button>
             </td>
           </tr>
+          @if (sharing() === doc.name) {
+            <tr class="share-row">
+              <td colspan="4">
+                <div class="share-panel">
+                  @if (shareLink(); as link) {
+                    <div class="share-link">
+                      <input type="text" readonly [value]="link.url" aria-label="Share link" (focus)="$any($event.target).select()" />
+                      <button type="button" class="btn primary" (click)="copyShareLink()">
+                        {{ copied() ? 'Copied' : 'Copy' }}
+                      </button>
+                    </div>
+                    <p class="muted small">
+                      Anyone with this link can open the file until {{ link.expiresAt | date: 'medium' }}.
+                      To stop the link working sooner, move the file to the recycle bin.
+                    </p>
+                  } @else {
+                    <label>
+                      Link expires after
+                      <select (change)="shareHours.set(+$any($event.target).value)">
+                        @for (option of expiryOptions; track option.hours) {
+                          <option [value]="option.hours" [selected]="option.hours === shareHours()">
+                            {{ option.label }}
+                          </option>
+                        }
+                      </select>
+                    </label>
+                    <button
+                      type="button"
+                      class="btn primary"
+                      (click)="createShareLink(doc)"
+                      [disabled]="busy() === doc.name"
+                    >
+                      Create link
+                    </button>
+                    <button type="button" class="btn" (click)="toggleShare(doc)">Cancel</button>
+                  }
+                </div>
+              </td>
+            </tr>
+          }
         }
       </tbody>
     </table>

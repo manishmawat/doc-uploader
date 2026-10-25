@@ -50,4 +50,15 @@ public class BlobUploadOptions
     /// SAS token expiration time in minutes
     /// </summary>
     public int SasTokenExpirationMinutes { get; set; } = 30;
+
+    /// <summary>
+    /// Days a deleted document stays in the recycle bin (purged in Azure by a lifecycle rule)
+    /// </summary>
+    public int RecycleBinRetentionDays { get; set; } = 14;
+
+    /// <summary>
+    /// Expiry options, in hours, a user can pick for a share link
+    /// (user delegation SAS can't outlive 7 days)
+    /// </summary>
+    public int[] ShareLinkAllowedHours { get; set; } = { 1, 24, 72 };
 }

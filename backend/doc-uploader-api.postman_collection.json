@@ -543,7 +543,95 @@
           ]
         },
         {
-          "name": "Delete Document",
+          "name": "Create Share Link",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Documents/{{document_name}}/share",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Documents",
+                "{{document_name}}",
+                "share"
+              ]
+            },
+            "description": "Read-only link anyone can open until it expires (1, 24 or 72 hours)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"expiresInHours\": 24}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has url', function () {",
+                  "    pm.expect(pm.response.json()).to.have.property('url');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Share Link - Invalid Expiry",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Documents/{{document_name}}/share",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Documents",
+                "{{document_name}}",
+                "share"
+              ]
+            },
+            "description": "Expiry must be one of BlobUpload:ShareLinkAllowedHours",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"expiresInHours\": 5}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Document (move to recycle bin)",
           "request": {
             "method": "DELETE",
             "header": [],
@@ -558,7 +646,106 @@
                 "{{document_name}}"
               ]
             },
-            "description": "Deletes one document; 404 if it doesn't exist"
+            "description": "Moves one document to the recycle bin; 404 if it does not exist"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Recycle Bin",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/Documents/recycle-bin",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Documents",
+                "recycle-bin"
+              ]
+            },
+            "description": "Documents in the recycle bin, most recently deleted first"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Restore From Recycle Bin",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/Documents/recycle-bin/{{document_name}}/restore",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Documents",
+                "recycle-bin",
+                "{{document_name}}",
+                "restore"
+              ]
+            },
+            "description": "Moves the document back; 409 if a document with that name exists"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Forever",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/Documents/recycle-bin/{{document_name}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Documents",
+                "recycle-bin",
+                "{{document_name}}"
+              ]
+            },
+            "description": "Permanently deletes a document from the recycle bin (move it to the bin first)"
           },
           "response": [],
           "event": [

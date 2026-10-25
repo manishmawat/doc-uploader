@@ -10,7 +10,7 @@ A Blazor WebAssembly app for uploading documents to Azure Blob Storage and worki
 | Page | What it does | Sign-in |
 |---|---|---|
 | **Upload Documents** (`/docimport`) | Two-step upload. Select up to 4 files (10 MB each) and review the list, then confirm. Each file shows its status, and failed uploads can be retried. Files are stored under a folder named after the signed-in user's email. | Required |
-| **My Documents** (`/mydocuments`) | List, download and delete your own uploaded files. This tab is a separate **Angular** app (`ng-app/`) embedded in an iframe; see [Embedded Angular app](#embedded-angular-app). | Required |
+| **My Documents** (`/mydocuments`) | List and download your own uploaded files, **share** a file with a time-limited link, and **delete** to a **recycle bin** (restore or delete forever; purged after 14 days). This tab is a separate **Angular** app (`ng-app/`) embedded in an iframe; see [Embedded Angular app](#embedded-angular-app). | Required |
 | **PDF Merge** (`/pdfmerge`) | Combine up to 10 PDFs (50 MB each) into one, in the order selected. | No |
 | **File to PDF** (`/fileconvert`) | Convert up to 20 images (JPEG, PNG, BMP, TIFF, WEBP) into A4 PDFs. | No |
 | **PDF Optimizer** (`/pdfoptimize`) | Reduce PDF file size. | No |
@@ -48,6 +48,10 @@ Entra ID's sign-in page can't load inside an iframe, so the Angular app doesn't 
 ```
 
 Both sides only accept messages from the expected window and origin. Downloads use a 5-minute read-only SAS URL from `GET /api/Documents/{name}/download-url`.
+
+**Share links** (`POST /api/Documents/{name}/share`) are read-only SAS URLs that expire after 1 hour, 1 day or 3 days. Anyone with the link can open the file without signing in. A SAS can't be revoked on its own, but moving the file to the recycle bin changes its path, so its share links stop working.
+
+**Recycle bin.** `DELETE /api/Documents/{name}` moves the file to `.recycle-bin/<email>/<name>` in the same container, using a server-side copy and then a delete. `GET /api/Documents/recycle-bin` lists the bin, `POST …/recycle-bin/{name}/restore` moves a file back (409 if the name is taken), and `DELETE …/recycle-bin/{name}` deletes it permanently. The bin is app-level rather than Azure soft delete, because Azurite doesn't support soft delete, so it works the same locally. In Azure a lifecycle rule purges it after 14 days (see [AZURE_SETUP.md](docs/AZURE_SETUP.md#recycle-bin-purge-rule)).
 
 ## Repository layout
 

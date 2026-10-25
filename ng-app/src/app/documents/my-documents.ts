@@ -1,9 +1,14 @@
 import { DatePipe } from '@angular/common';
-import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { HostAuthService } from '../auth/host-auth.service';
-import { DocumentItem, DocumentsService } from './documents.service';
+import { describeError, formatSize } from '../shared/errors';
+import {
+  DocumentItem,
+  DocumentsService,
+  DownloadUrlResponse,
+  SHARE_EXPIRY_OPTIONS,
+} from './documents.service';
 
 @Component({
   selector: 'app-my-documents',
@@ -13,14 +18,22 @@ import { DocumentItem, DocumentsService } from './documents.service';
 export class MyDocuments implements OnInit {
   private readonly documentsService = inject(DocumentsService);
   protected readonly auth = inject(HostAuthService);
+  protected readonly formatSize = formatSize;
+  protected readonly expiryOptions = SHARE_EXPIRY_OPTIONS;
 
   protected readonly documents = signal<DocumentItem[]>([]);
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
-  /** Name of the document awaiting delete confirmation. */
-  protected readonly confirmingDelete = signal<string | null>(null);
-  /** Name of the document with a download or delete in progress. */
+  /** Name of the document with a download, share or delete in progress. */
   protected readonly busy = signal<string | null>(null);
+  /** Last moved-to-bin document, offered for Undo. */
+  protected readonly lastDeleted = signal<string | null>(null);
+
+  /** Name of the document whose share panel is open. */
+  protected readonly sharing = signal<string | null>(null);
+  protected readonly shareHours = signal<number>(24);
+  protected readonly shareLink = signal<DownloadUrlResponse | null>(null);
+  protected readonly copied = signal(false);
 
   ngOnInit(): void {
     if (this.auth.isFramed) {
@@ -41,51 +54,69 @@ export class MyDocuments implements OnInit {
   }
 
   protected async download(doc: DocumentItem): Promise<void> {
-    this.busy.set(doc.name);
-    this.error.set(null);
-    try {
+    await this.run(doc.name, `Could not download ${doc.name}.`, async () => {
       const { url } = await firstValueFrom(this.documentsService.getDownloadUrl(doc.name));
       // The SAS sets Content-Disposition: attachment, so the browser downloads instead of navigating
       const link = document.createElement('a');
       link.href = url;
       link.download = doc.name;
       link.click();
-    } catch (err) {
-      this.error.set(describeError(err, `Could not download ${doc.name}.`));
-    } finally {
-      this.busy.set(null);
+    });
+  }
+
+  protected toggleShare(doc: DocumentItem): void {
+    this.sharing.set(this.sharing() === doc.name ? null : doc.name);
+    this.shareLink.set(null);
+    this.copied.set(false);
+  }
+
+  protected async createShareLink(doc: DocumentItem): Promise<void> {
+    await this.run(doc.name, `Could not create a share link for ${doc.name}.`, async () => {
+      this.shareLink.set(await firstValueFrom(this.documentsService.share(doc.name, this.shareHours())));
+      this.copied.set(false);
+    });
+  }
+
+  protected async copyShareLink(): Promise<void> {
+    const link = this.shareLink();
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link.url);
+      this.copied.set(true);
+    } catch {
+      this.error.set('Could not copy automatically. Select the link and copy it.');
     }
   }
 
   protected async delete(doc: DocumentItem): Promise<void> {
-    this.confirmingDelete.set(null);
-    this.busy.set(doc.name);
-    this.error.set(null);
-    try {
+    await this.run(doc.name, `Could not delete ${doc.name}.`, async () => {
       await firstValueFrom(this.documentsService.delete(doc.name));
       this.documents.update((docs) => docs.filter((d) => d.name !== doc.name));
+      if (this.sharing() === doc.name) this.sharing.set(null);
+      this.lastDeleted.set(doc.name);
+    });
+  }
+
+  protected async undoDelete(): Promise<void> {
+    const name = this.lastDeleted();
+    if (!name) return;
+    this.lastDeleted.set(null);
+    await this.run(name, `Could not restore ${name}.`, async () => {
+      await firstValueFrom(this.documentsService.restore(name));
+      await this.refresh();
+    });
+  }
+
+  /** Runs an action for one document with busy and error handling. */
+  private async run(name: string, failure: string, action: () => Promise<void>): Promise<void> {
+    this.busy.set(name);
+    this.error.set(null);
+    try {
+      await action();
     } catch (err) {
-      this.error.set(describeError(err, `Could not delete ${doc.name}.`));
+      this.error.set(describeError(err, failure));
     } finally {
       this.busy.set(null);
     }
   }
-
-  protected formatSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-}
-
-/** Prefers the API's ErrorResponse message, then the error's own message. */
-function describeError(err: unknown, fallback: string): string {
-  if (err instanceof HttpErrorResponse) {
-    // Status 0: network or CORS failure; err.error is then the browser's generic "Failed to fetch"
-    if (err.status === 0) {
-      return 'Could not reach the API. Check that it is running and allows this origin (CORS).';
-    }
-    return err.error?.message ?? fallback;
-  }
-  return err instanceof Error ? err.message : fallback;
 }
