@@ -140,3 +140,50 @@ public class DownloadUrlResponse
     /// </summary>
     public DateTime ExpiresAt { get; set; }
 }
+
+/// <summary>
+/// Request model for creating a share link
+/// </summary>
+public class ShareLinkRequest
+{
+    /// <summary>
+    /// How long the link stays valid; must be one of BlobUpload:ShareLinkAllowedHours
+    /// </summary>
+    public int ExpiresInHours { get; set; }
+}
+
+/// <summary>
+/// A document in the signed-in user's recycle bin
+/// </summary>
+public class RecycleBinItem
+{
+    /// <summary>
+    /// Original file name relative to the user's folder
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Size in bytes
+    /// </summary>
+    public long SizeBytes { get; set; }
+
+    /// <summary>
+    /// When the document was moved to the recycle bin (UTC)
+    /// </summary>
+    public DateTimeOffset? DeletedOn { get; set; }
+
+    /// <summary>
+    /// When the document will be permanently deleted (UTC)
+    /// </summary>
+    public DateTimeOffset? PurgeOn { get; set; }
+}
+
+/// <summary>
+/// Outcome of restoring a document from the recycle bin
+/// </summary>
+public enum RestoreResult
+{
+    Restored,
+    NotFound,
+    NameConflict
+}

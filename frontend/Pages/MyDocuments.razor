@@ -12,7 +12,7 @@
 
 @* The My Documents browser is a separate Angular app (ng-app/), served under /ng/.
    It can't sign in inside an iframe, so this page hands it API tokens via postMessage (wwwroot/js/ngHost.js). *@
-<iframe @ref="frame" src="@appUrl" title="My Documents" class="hosted-app"></iframe>
+<iframe @ref="frame" src="@appUrl" title="My Documents" class="hosted-app" allow="clipboard-write"></iframe>
 
 @code {
     private ElementReference frame;

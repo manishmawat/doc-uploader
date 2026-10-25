@@ -58,13 +58,61 @@ public interface IBlobStorageService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Deletes one of the user's documents
+    /// Creates a read-only link anyone can open until it expires. It can't be revoked,
+    /// but moving the document to the recycle bin makes it stop working.
+    /// </summary>
+    /// <param name="userIdentifier">User email or ID that owns the folder</param>
+    /// <param name="name">File name relative to the user's folder</param>
+    /// <param name="expiresInHours">Link lifetime in hours</param>
+    /// <param name="cancellationToken"></param>
+    /// <returns>Share link, or null when the document doesn't exist</returns>
+    Task<DownloadUrlResponse?> CreateShareLinkAsync(
+        string userIdentifier,
+        string name,
+        int expiresInHours,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Moves one of the user's documents to their recycle bin
     /// </summary>
     /// <param name="userIdentifier">User email or ID that owns the folder</param>
     /// <param name="name">File name relative to the user's folder</param>
     /// <param name="cancellationToken"></param>
-    /// <returns>True if the document existed and was deleted</returns>
-    Task<bool> DeleteUserDocumentAsync(
+    /// <returns>True if the document existed and was moved</returns>
+    Task<bool> MoveToRecycleBinAsync(
+        string userIdentifier,
+        string name,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lists the user's recycle bin, most recently deleted first
+    /// </summary>
+    /// <param name="userIdentifier">User email or ID that owns the folder</param>
+    /// <param name="cancellationToken"></param>
+    Task<IReadOnlyList<RecycleBinItem>> ListRecycleBinAsync(
+        string userIdentifier,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Moves a document from the recycle bin back to the user's folder
+    /// </summary>
+    /// <param name="userIdentifier">User email or ID that owns the folder</param>
+    /// <param name="name">File name relative to the user's folder</param>
+    /// <param name="cancellationToken"></param>
+    /// <returns>NameConflict when a document with that name already exists</returns>
+    Task<RestoreResult> RestoreFromRecycleBinAsync(
+        string userIdentifier,
+        string name,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Permanently deletes a document from the recycle bin
+    /// </summary>
+    /// <param name="userIdentifier">User email or ID that owns the folder</param>
+    /// <param name="name">File name relative to the user's folder</param>
+    /// <param name="cancellationToken"></param>
+    /// <returns>True if the document was in the recycle bin and was deleted</returns>
+    Task<bool> DeleteFromRecycleBinAsync(
         string userIdentifier,
         string name,
         CancellationToken cancellationToken = default);

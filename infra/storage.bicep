@@ -2,6 +2,9 @@ param name string
 param location string = resourceGroup().location
 param tags object = {}
 
+@description('Days a deleted document stays in the recycle bin before it is purged')
+param recycleBinRetentionDays int = 14
+
 // Azure Storage Account for document uploads
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: name
@@ -30,6 +33,37 @@ resource documentsContainer 'Microsoft.Storage/storageAccounts/blobServices/cont
   parent: blobService
   properties: {
     publicAccess: 'None'
+  }
+}
+
+// Purge the app-level recycle bin: the API moves deleted documents to documents/.recycle-bin/
+// (BlobStorageService.MoveToRecycleBinAsync). Keep in sync with BlobUpload:RecycleBinRetentionDays.
+resource lifecyclePolicy 'Microsoft.Storage/storageAccounts/managementPolicies@2023-01-01' = {
+  name: 'default'
+  parent: storageAccount
+  properties: {
+    policy: {
+      rules: [
+        {
+          name: 'purge-recycle-bin'
+          enabled: true
+          type: 'Lifecycle'
+          definition: {
+            filters: {
+              blobTypes: [ 'blockBlob' ]
+              prefixMatch: [ 'documents/.recycle-bin/' ]
+            }
+            actions: {
+              baseBlob: {
+                delete: {
+                  daysAfterModificationGreaterThan: recycleBinRetentionDays
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
   }
 }
 

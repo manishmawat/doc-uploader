@@ -58,6 +58,33 @@ The frontend reads `AzureAd:ClientId`, `AzureAd:Authority` and `BlobStorage:ApiS
 
 The API signs upload SAS tokens with a **user delegation key** obtained through its managed identity, so no storage account key is stored anywhere. *Storage Blob Data Contributor* includes the permission needed to request that key, and the list and delete permissions used by the *My Documents* endpoints (`/api/Documents`).
 
+### Recycle bin purge rule
+
+Deleted documents are moved to `documents/.recycle-bin/` by the API. A lifecycle management rule on the storage account deletes them 14 days later (the copy into the bin sets *last modified* to the delete time). The rule is in `infra/storage.bicep`. To apply it to the existing account:
+
+```bash
+cat > recycle-bin-policy.json <<'EOF'
+{
+  "rules": [
+    {
+      "name": "purge-recycle-bin",
+      "enabled": true,
+      "type": "Lifecycle",
+      "definition": {
+        "filters": { "blobTypes": ["blockBlob"], "prefixMatch": ["documents/.recycle-bin/"] },
+        "actions": { "baseBlob": { "delete": { "daysAfterModificationGreaterThan": 14 } } }
+      }
+    }
+  ]
+}
+EOF
+az storage account management-policy create \
+  --account-name docuploaderdevstorage -g rg-uploaderapp-dev --policy @recycle-bin-policy.json
+az storage account management-policy show --account-name docuploaderdevstorage -g rg-uploaderapp-dev
+```
+
+`management-policy create` replaces the account's whole policy. If other rules are added later, include them in the same file. Azure runs lifecycle rules about once a day, so a file can stay a little past 14 days. Keep the days in sync with `BlobUpload:RecycleBinRetentionDays`, which the UI uses to show the purge date.
+
 Free tier limits: 60 CPU-minutes per day, and the app sleeps when idle, so the first request after a break can take 10–20 seconds. For always-on hosting, scale the plan up: `az appservice plan update -n doc-uploader-dev-asp -g rg-uploaderapp-dev --sku B1`.
 
 ### Recreate the backend resources

@@ -1,4 +1,6 @@
 using Azure.Storage.Blobs;
+using BlobCopyFromUriOptions = Azure.Storage.Blobs.Models.BlobCopyFromUriOptions;
+using BlobTraits = Azure.Storage.Blobs.Models.BlobTraits;
 using Azure.Storage.Blobs.Specialized;
 using Azure.Storage.Sas;
 using DocUploaderApi.Models;
@@ -218,36 +220,111 @@ public class BlobStorageService : IBlobStorageService
         if (!await blobClient.ExistsAsync(cancellationToken))
             return null;
 
-        var sasBuilder = new BlobSasBuilder
-        {
-            BlobContainerName = _containerClient.Name,
-            BlobName = blobClient.Name,
-            ExpiresOn = DateTimeOffset.UtcNow.AddMinutes(DownloadSasExpirationMinutes),
-            ContentDisposition = $"attachment; filename=\"{name}\""
-        };
-        sasBuilder.SetPermissions(BlobSasPermissions.Read);
-
-        var sasUri = await SignSasAsync(blobClient, sasBuilder, cancellationToken);
+        var expiresOn = DateTimeOffset.UtcNow.AddMinutes(DownloadSasExpirationMinutes);
+        var sasUri = await CreateReadSasUriAsync(
+            blobClient, expiresOn, $"attachment; filename=\"{name}\"", cancellationToken);
 
         _logger.LogInformation("Generated download SAS for user {User} file {File}", userIdentifier, name);
 
-        return new DownloadUrlResponse
-        {
-            Url = sasUri,
-            ExpiresAt = sasBuilder.ExpiresOn.UtcDateTime
-        };
+        return new DownloadUrlResponse { Url = sasUri, ExpiresAt = expiresOn.UtcDateTime };
     }
 
-    public async Task<bool> DeleteUserDocumentAsync(
+    public async Task<DownloadUrlResponse?> CreateShareLinkAsync(
+        string userIdentifier,
+        string name,
+        int expiresInHours,
+        CancellationToken cancellationToken = default)
+    {
+        var blobClient = GetUserBlobClient(userIdentifier, name);
+        if (!await blobClient.ExistsAsync(cancellationToken))
+            return null;
+
+        // Inline so recipients can view PDFs and images in the browser
+        var expiresOn = DateTimeOffset.UtcNow.AddHours(expiresInHours);
+        var sasUri = await CreateReadSasUriAsync(
+            blobClient, expiresOn, $"inline; filename=\"{name}\"", cancellationToken);
+
+        _logger.LogInformation("Created share link for user {User} file {File}, expires {ExpiresOn}",
+            userIdentifier, name, expiresOn);
+
+        return new DownloadUrlResponse { Url = sasUri, ExpiresAt = expiresOn.UtcDateTime };
+    }
+
+    public async Task<bool> MoveToRecycleBinAsync(
         string userIdentifier,
         string name,
         CancellationToken cancellationToken = default)
     {
-        var blobClient = GetUserBlobClient(userIdentifier, name);
+        var source = GetUserBlobClient(userIdentifier, name);
+        if (!await source.ExistsAsync(cancellationToken))
+            return false;
+
+        // Replaces an older copy with the same name already in the bin
+        var target = GetRecycleBinBlobClient(userIdentifier, name);
+        var metadata = new Dictionary<string, string> { [DeletedOnMetadataKey] = DateTimeOffset.UtcNow.ToString("O") };
+        await MoveBlobAsync(source, target, metadata, cancellationToken);
+
+        _logger.LogInformation("Moved {BlobPath} to the recycle bin for user {User}", source.Name, userIdentifier);
+        return true;
+    }
+
+    public async Task<IReadOnlyList<RecycleBinItem>> ListRecycleBinAsync(
+        string userIdentifier,
+        CancellationToken cancellationToken = default)
+    {
+        var prefix = $"{RecycleBinPrefix}{SanitizePath(userIdentifier)}/";
+        var retention = TimeSpan.FromDays(_uploadOptions.Value.RecycleBinRetentionDays);
+        var items = new List<RecycleBinItem>();
+
+        await foreach (var blob in _containerClient.GetBlobsAsync(
+            traits: BlobTraits.Metadata, prefix: prefix, cancellationToken: cancellationToken))
+        {
+            var deletedOn = blob.Metadata.TryGetValue(DeletedOnMetadataKey, out var value)
+                && DateTimeOffset.TryParse(value, out var parsed)
+                    ? parsed
+                    : blob.Properties.LastModified;
+
+            items.Add(new RecycleBinItem
+            {
+                Name = blob.Name[prefix.Length..],
+                SizeBytes = blob.Properties.ContentLength ?? 0,
+                DeletedOn = deletedOn,
+                PurgeOn = deletedOn + retention
+            });
+        }
+
+        return items.OrderByDescending(i => i.DeletedOn).ToList();
+    }
+
+    public async Task<RestoreResult> RestoreFromRecycleBinAsync(
+        string userIdentifier,
+        string name,
+        CancellationToken cancellationToken = default)
+    {
+        var source = GetRecycleBinBlobClient(userIdentifier, name);
+        if (!await source.ExistsAsync(cancellationToken))
+            return RestoreResult.NotFound;
+
+        var target = GetUserBlobClient(userIdentifier, name);
+        if (await target.ExistsAsync(cancellationToken))
+            return RestoreResult.NameConflict;
+
+        await MoveBlobAsync(source, target, new Dictionary<string, string>(), cancellationToken);
+
+        _logger.LogInformation("Restored {BlobPath} from the recycle bin for user {User}", target.Name, userIdentifier);
+        return RestoreResult.Restored;
+    }
+
+    public async Task<bool> DeleteFromRecycleBinAsync(
+        string userIdentifier,
+        string name,
+        CancellationToken cancellationToken = default)
+    {
+        var blobClient = GetRecycleBinBlobClient(userIdentifier, name);
         var response = await blobClient.DeleteIfExistsAsync(cancellationToken: cancellationToken);
 
         if (response.Value)
-            _logger.LogInformation("Deleted blob {BlobPath} for user {User}", blobClient.Name, userIdentifier);
+            _logger.LogInformation("Permanently deleted {BlobPath} for user {User}", blobClient.Name, userIdentifier);
 
         return response.Value;
     }
@@ -256,6 +333,56 @@ public class BlobStorageService : IBlobStorageService
     /// Read-only download links are short-lived; the browser follows them immediately
     /// </summary>
     private const int DownloadSasExpirationMinutes = 5;
+
+    /// <summary>
+    /// Deleted documents live under .recycle-bin/&lt;user&gt;/ in the same container. User folders are
+    /// emails or IDs, so they can't collide with it, and listing &lt;user&gt;/ never includes it.
+    /// An Azure lifecycle rule purges this prefix after BlobUpload:RecycleBinRetentionDays.
+    /// </summary>
+    private const string RecycleBinPrefix = ".recycle-bin/";
+
+    private const string DeletedOnMetadataKey = "deletedOn";
+
+    private async Task<Uri> CreateReadSasUriAsync(
+        BlobClient blobClient,
+        DateTimeOffset expiresOn,
+        string? contentDisposition,
+        CancellationToken cancellationToken)
+    {
+        var sasBuilder = new BlobSasBuilder
+        {
+            BlobContainerName = _containerClient.Name,
+            BlobName = blobClient.Name,
+            ExpiresOn = expiresOn,
+            ContentDisposition = contentDisposition
+        };
+        sasBuilder.SetPermissions(BlobSasPermissions.Read);
+
+        return await SignSasAsync(blobClient, sasBuilder, cancellationToken);
+    }
+
+    /// <summary>
+    /// Server-side copy, then delete. The copy source is a short-lived read SAS, which works
+    /// with both an account key (Azurite) and a managed identity (Azure).
+    /// </summary>
+    private async Task MoveBlobAsync(
+        BlobClient source,
+        BlobClient target,
+        IDictionary<string, string> metadata,
+        CancellationToken cancellationToken)
+    {
+        var sourceUri = await CreateReadSasUriAsync(
+            source, DateTimeOffset.UtcNow.AddMinutes(DownloadSasExpirationMinutes), null, cancellationToken);
+
+        var copy = await target.StartCopyFromUriAsync(
+            sourceUri, new BlobCopyFromUriOptions { Metadata = metadata }, cancellationToken);
+        await copy.WaitForCompletionAsync(cancellationToken);
+
+        await source.DeleteIfExistsAsync(cancellationToken: cancellationToken);
+    }
+
+    private BlobClient GetRecycleBinBlobClient(string userIdentifier, string name) =>
+        _containerClient.GetBlobClient($"{RecycleBinPrefix}{GetUserBlobClient(userIdentifier, name).Name}");
 
     /// <summary>
     /// Resolves a file name inside the user's own folder. Upload stores sanitized names,
