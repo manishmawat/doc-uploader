@@ -1,0 +1,40 @@
+.cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    width: min(100%, 420px);
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    aspect-ratio: 1;
+    padding: 0;
+    border: 1px solid var(--neutral-stroke-rest);
+    border-radius: 8px;
+    background: repeating-linear-gradient(45deg, var(--accent-fill-rest), var(--accent-fill-rest) 8px, var(--accent-fill-hover) 8px, var(--accent-fill-hover) 16px);
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.card:hover:not(.up) {
+    transform: scale(1.03);
+}
+
+.card.up {
+    background: var(--neutral-layer-1);
+    cursor: default;
+}
+
+.card.matched {
+    background: var(--neutral-layer-2);
+    opacity: 0.75;
+}
+
+.label {
+    font-size: 12px;
+    color: var(--neutral-foreground-rest);
+}

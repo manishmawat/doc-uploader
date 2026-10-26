@@ -1,0 +1,59 @@
+.difficulty {
+    display: flex;
+    gap: 4px;
+}
+
+.board-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.board {
+    --cell-size: 28px;
+    display: grid;
+    gap: 2px;
+    width: max-content;
+    padding: 6px;
+    border-radius: 6px;
+    background: var(--neutral-layer-3);
+    user-select: none;
+}
+
+.cell {
+    width: var(--cell-size);
+    height: var(--cell-size);
+    padding: 0;
+    border: 1px solid var(--neutral-stroke-rest);
+    border-radius: 3px;
+    background: var(--neutral-fill-rest);
+    font: 700 14px / 1 var(--body-font);
+    cursor: pointer;
+}
+
+.cell:hover:not(.revealed):not(:disabled) {
+    background: var(--neutral-fill-hover);
+}
+
+.cell:disabled {
+    cursor: default;
+}
+
+.cell.revealed {
+    background: var(--neutral-layer-1);
+    border-color: transparent;
+    cursor: default;
+}
+
+.cell.exploded {
+    background: #e74856;
+}
+
+.n1 { color: #0f6cbd; }
+.n2 { color: #107c10; }
+.n3 { color: #c50f1f; }
+.n4 { color: #5c2e91; }
+.n5 { color: #8e562e; }
+.n6 { color: #038387; }
+.n7 { color: #242424; }
+.n8 { color: #616161; }

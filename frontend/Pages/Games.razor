@@ -1,0 +1,29 @@
+@page "/games"
+@using UploaderDoc.Components.Games
+
+<PageTitle>Games - UploaderDoc</PageTitle>
+
+<h1 class="mb-4">
+    <FluentIcon Value="@(new Icons.Regular.Size24.Games())" Color="Color.Accent" />
+    Games
+</h1>
+<p class="games-intro">
+    Take a break. The games run entirely in your browser and work offline once the app has loaded.
+    Best scores are saved on this device.
+</p>
+
+<FluentTabs @bind-ActiveTabId="activeTab">
+    <FluentTab Id="game-2048" Label="2048">
+        <Game2048View />
+    </FluentTab>
+    <FluentTab Id="game-minesweeper" Label="Minesweeper">
+        <MinesweeperView />
+    </FluentTab>
+    <FluentTab Id="game-memory" Label="Memory match">
+        <MemoryMatchView />
+    </FluentTab>
+</FluentTabs>
+
+@code {
+    private string? activeTab = "game-2048";
+}

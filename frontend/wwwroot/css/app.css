@@ -30,6 +30,65 @@ body {
     width: 100%;
 }
 
+/* Games (Pages/Games.razor, Components/Games) */
+.games-intro {
+    color: var(--neutral-foreground-hint);
+    margin-bottom: 1rem;
+}
+
+.game {
+    padding: 1rem 0;
+}
+
+.game-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 0.5rem;
+}
+
+.game-bar .stat {
+    display: flex;
+    flex-direction: column;
+    min-width: 64px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: var(--neutral-layer-2);
+    text-align: center;
+}
+
+.game-bar .stat span {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--neutral-foreground-hint);
+}
+
+.game-bar .stat strong {
+    font-size: 18px;
+}
+
+.game .hint {
+    color: var(--neutral-foreground-hint);
+    font-size: 13px;
+}
+
+.game .result {
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.game .result.win {
+    background: #dff6dd;
+    color: #0e700e;
+}
+
+.game .result.lose {
+    background: #fde7e9;
+    color: #c50f1f;
+}
+
 /* Embedded app (Pages/MyDocuments.razor) fills the content area below the header */
 .hosted-app {
     display: block;
@@ -64,6 +123,46 @@ footer {
     padding: 5px;
 }
 
+
+#update-banner {
+    position: fixed;
+    left: 50%;
+    bottom: 1rem;
+    transform: translateX(-50%);
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    max-width: calc(100% - 2rem);
+    padding: 0.6rem 1rem;
+    border-radius: 6px;
+    background: #0f6cbd;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+    #update-banner[hidden] {
+        display: none;
+    }
+
+    #update-banner button {
+        font: inherit;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    #update-banner .reload {
+        padding: 0.25rem 0.75rem;
+        background: #ffffff;
+        color: #0f6cbd;
+        font-weight: 600;
+    }
+
+    #update-banner .dismiss {
+        background: transparent;
+        color: #ffffff;
+    }
 
 #blazor-error-ui {
     background: lightyellow;

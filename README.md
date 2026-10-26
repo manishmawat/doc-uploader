@@ -14,8 +14,11 @@ A Blazor WebAssembly app for uploading documents to Azure Blob Storage and worki
 | **PDF Merge** (`/pdfmerge`) | Combine up to 10 PDFs (50 MB each) into one, in the order selected. | No |
 | **File to PDF** (`/fileconvert`) | Convert up to 20 images (JPEG, PNG, BMP, TIFF, WEBP) into A4 PDFs. | No |
 | **PDF Optimizer** (`/pdfoptimize`) | Reduce PDF file size. | No |
+| **Games** (`/games`) | 2048, Minesweeper and Memory match. They run entirely in the browser, and best scores are saved on the device. | No |
 
 PDF merge, conversion and optimization run entirely in the browser (iText7 on WebAssembly). No file leaves the user's machine for these tools.
+
+**Works offline.** The app is a PWA: after one online visit, a service worker (`frontend/wwwroot/service-worker.published.js`) caches the published app, so it opens with no connection and can be installed. Games and the PDF tools work offline. Sign-in, upload and My Documents need a connection, and `/ng/` (the Angular app) is never cached. After a deploy, users see a *"A new version is available. Reload"* banner.
 
 ## How upload works
 
@@ -57,9 +60,12 @@ Both sides only accept messages from the expected window and origin. Downloads u
 
 ```
 frontend/                 Blazor WebAssembly app (UploaderDoc.csproj)
-  Pages/                  Docimport, PdfMerge, FileConverter, PdfOptimize, Authentication
+  Pages/                  Docimport, PdfMerge, FileConverter, PdfOptimize, Games, MyDocuments, Authentication
+  Games/                  Game rules (2048, Minesweeper, Memory match) as plain C#, unit-tested
+  Components/Games/       Game UI components
   Services/               DocumentUploadService (calls the API) and the PDF services
   wwwroot/                appsettings.json (local), appsettings.Production.json, staticwebapp.config.json
+tests/UploaderDoc.Tests/  xUnit tests for the game rules (run in CI before deploy)
 ng-app/                   Angular app for the My Documents tab, deployed to /ng/
 apphost/                  Aspire AppHost: starts API + Blazor + Angular locally with a dashboard (dev only)
 package.json              Root dev scripts: `npm run dev` starts all three apps (see docs/LOCAL_DEVELOPMENT.md)

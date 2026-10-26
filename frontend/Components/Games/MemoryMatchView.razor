@@ -1,0 +1,105 @@
+@using UploaderDoc.Games
+@implements IDisposable
+@inject GameScoreStore Scores
+
+<div class="game">
+    <div class="game-bar">
+        <div class="stat"><span>Moves</span><strong>@game.Moves</strong></div>
+        <div class="stat"><span>Pairs</span><strong>@game.MatchedPairs / @game.Pairs</strong></div>
+        <div class="stat"><span>Time</span><strong>@GameClock.Format(clock.Seconds)</strong></div>
+        <div class="stat"><span>Best</span><strong>@(best is { } b ? $"{b} moves" : "–")</strong></div>
+        <FluentButton Appearance="Appearance.Accent" OnClick="NewGame">New game</FluentButton>
+    </div>
+    <p class="hint">Flip two cards at a time and find all the matching file types in as few moves as you can.</p>
+
+    @if (game.IsComplete)
+    {
+        <p class="result win" role="status">
+            All pairs found in @game.Moves moves and @GameClock.Format(clock.Seconds)! @(newBest ? "New best." : "")
+        </p>
+    }
+
+    <div class="cards" role="grid" aria-label="Memory cards">
+        @for (var i = 0; i < game.Cards.Count; i++)
+        {
+            var index = i;
+            var card = game.Cards[index];
+            var symbol = Symbols[card.Symbol];
+            <button type="button" role="gridcell"
+                    class="card @(card.IsFaceUp ? "up" : "") @(card.IsMatched ? "matched" : "")"
+                    aria-label="@(card.IsFaceUp ? symbol.Label : $"Card {index + 1}, face down")"
+                    @onclick="() => Flip(index)">
+                @if (card.IsFaceUp)
+                {
+                    <FluentIcon Value="@symbol.Icon" Color="Color.Custom" CustomColor="@symbol.Color" />
+                    <span class="label">@symbol.Label</span>
+                }
+            </button>
+        }
+    </div>
+</div>
+
+@code {
+    private const string BestKey = "memory.best";
+    private const int MismatchDelayMs = 800;
+
+    private record Symbol(Icon Icon, string Label, string Color);
+
+    private static readonly Symbol[] Symbols =
+    [
+        new(new Icons.Regular.Size32.DocumentPdf(), "PDF", "#c50f1f"),
+        new(new Icons.Regular.Size32.Image(), "Image", "#107c10"),
+        new(new Icons.Regular.Size32.Table(), "Spreadsheet", "#0e700e"),
+        new(new Icons.Regular.Size32.DocumentText(), "Text", "#0f6cbd"),
+        new(new Icons.Regular.Size32.Archive(), "Zip", "#8e562e"),
+        new(new Icons.Regular.Size32.Video(), "Video", "#5c2e91"),
+        new(new Icons.Regular.Size32.SlideTextMultiple(), "Slides", "#c43e1c"),
+        new(new Icons.Regular.Size32.CodeBlock(), "Code", "#038387"),
+    ];
+
+    private readonly MemoryMatch game = new(Symbols.Length);
+    private GameClock clock = null!;
+    private int? best;
+    private bool newBest;
+
+    protected override async Task OnInitializedAsync()
+    {
+        clock = new GameClock(() => InvokeAsync(StateHasChanged));
+        best = await Scores.GetAsync(BestKey);
+    }
+
+    private void NewGame()
+    {
+        game.NewGame();
+        clock.Reset();
+        newBest = false;
+    }
+
+    private async Task Flip(int index)
+    {
+        var result = game.Flip(index);
+        if (result == FlipResult.Ignored)
+            return;
+
+        clock.Start();
+
+        if (result == FlipResult.Mismatch)
+        {
+            StateHasChanged();
+            await Task.Delay(MismatchDelayMs);
+            game.HideMismatch();
+        }
+        else if (game.IsComplete)
+        {
+            clock.Stop();
+            if (best is null || game.Moves < best)
+            {
+                best = game.Moves;
+                newBest = true;
+                await Scores.SetAsync(BestKey, game.Moves);
+            }
+        }
+    }
+
+    public void Dispose() => clock.Dispose();
+}

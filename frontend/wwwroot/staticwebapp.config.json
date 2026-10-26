@@ -1,6 +1,25 @@
 {
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/ng/*"]
+    "exclude": [
+      "/ng/*"
+    ]
+  },
+  "routes": [
+    {
+      "route": "/service-worker.js",
+      "headers": {
+        "cache-control": "no-cache"
+      }
+    },
+    {
+      "route": "/service-worker-assets.js",
+      "headers": {
+        "cache-control": "no-cache"
+      }
+    }
+  ],
+  "mimeTypes": {
+    ".webmanifest": "application/manifest+json"
   }
 }

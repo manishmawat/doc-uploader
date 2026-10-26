@@ -80,6 +80,21 @@ docker compose up --build    # API on http://localhost:7071, Azurite on 10000-10
 
 This uses the same port as `dotnet run`, so run one or the other, not both.
 
+### Testing offline support (PWA)
+
+In development, `wwwroot/service-worker.js` is a pass-through, so nothing is cached and changes show up on reload. The caching worker (`service-worker.published.js`) is only used in a **published** build. To try it locally:
+
+```bash
+dotnet publish frontend -c Release -o publish
+cd frontend && npx swa start ../publish/wwwroot --port 4280
+```
+
+Open http://localhost:4280/games once. Then, in DevTools, check *Application → Service workers* (it should be activated). Go to *Network* and set **Offline**, then reload. The app should still open, and the games and PDF tools should work.
+
+To clear the cached app, use *Application → Storage → Clear site data*.
+
+Game rule tests: `dotnet test tests/UploaderDoc.Tests`.
+
 ## Configuration
 
 ### Frontend (`frontend/wwwroot/`)
@@ -123,6 +138,7 @@ To allow the frontend on another port, add its origin to `Cors:AllowedOrigins` i
 | Upload fails with **403 Forbidden** from the API | The token is valid but lacks the `SASKey.Write` scope. Check the API permission and admin consent on the SPA registration. |
 | Upload fails with **"File type '.xyz' is not allowed"** | The extension isn't in `BlobUpload:AllowedExtensions`. The upload page also only offers images (`Accept="image/*"`). |
 | `npm run dev` or the AppHost fails with **"address already in use"** on 7071, 7229 or 4200 | An earlier instance is still running, for example a `dotnet run` in another terminal. Stop it (`netstat -ano \| findstr :7071` shows the PID), then start again. |
+| The deployed site still shows an **old version** | The service worker serves the cached app until the new one is installed. Click **Reload** on the update banner, or close every tab of the app and open it again. |
 | `dotnet build` fails with **"file is locked by: DocUploaderApi"** | The backend is still running. Stop it, then build. |
 | *My Documents* says **"The host app did not provide an access token"** | The Blazor origin isn't in `hostOrigins` in `ng-app/src/environments/environment.development.ts`, or `AngularApp:Url` doesn't match where `ng serve` runs. |
 | Sign-in fails with **AADSTS50011** | The redirect URI isn't registered. Add `<origin>/authentication/login-callback` to the SPA registration. |
