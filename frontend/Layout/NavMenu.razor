@@ -4,8 +4,11 @@
     <nav class="sitenav" aria-labelledby="main-menu">
         <FluentNavMenu Id="main-menu" Width="250" Collapsible="true" Title="Navigation menu" @bind-Expanded="expanded" CustomToggle="true">
              <FluentNavLink Href="/" Match="NavLinkMatch.All" Icon="@(new Icons.Regular.Size20.Home())" IconColor="Color.Accent">Home</FluentNavLink>
-             <FluentNavLink Href="/docimport" Icon="@(new Icons.Regular.Size20.Document())" IconColor="Color.Accent">Upload Documents</FluentNavLink>
-             <FluentNavLink Href="/mydocuments" Icon="@(new Icons.Regular.Size20.FolderOpen())" IconColor="Color.Accent">My Documents</FluentNavLink>
+             @* Pages that need sign-in (see App.razor IsPublicRoute) are only listed for signed-in users *@
+             <AuthorizeView>
+                 <FluentNavLink Href="/docimport" Icon="@(new Icons.Regular.Size20.Document())" IconColor="Color.Accent">Upload Documents</FluentNavLink>
+                 <FluentNavLink Href="/mydocuments" Icon="@(new Icons.Regular.Size20.FolderOpen())" IconColor="Color.Accent">My Documents</FluentNavLink>
+             </AuthorizeView>
              <FluentNavLink Href="/pdfmerge" Icon="@(new Icons.Regular.Size20.DocumentPdf())" IconColor="Color.Accent">PDF Merge</FluentNavLink>
              <FluentNavLink Href="/fileconvert" Icon="@(new Icons.Regular.Size20.DocumentArrowRight())" IconColor="Color.Accent">File to PDF</FluentNavLink>
              <FluentNavLink Href="/pdfoptimize" Icon="@(new Icons.Regular.Size20.Settings())" IconColor="Color.Accent">PDF Optimizer</FluentNavLink>
