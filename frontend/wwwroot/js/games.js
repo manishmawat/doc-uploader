@@ -61,6 +61,28 @@ export function detachDirectionalInput(element) {
     detachers.delete(element);
 }
 
+// Key input for Components/Games/SudokuView.razor: calls OnKey(key) for the listed keys only
+// (Ctrl/Cmd+Z arrives as 'Undo'); other keys, like Tab, keep their normal behaviour.
+export function attachKeyInput(element, dotNetRef, keys) {
+    detachDirectionalInput(element);
+    const handled = new Set(keys);
+
+    const onKeyDown = (event) => {
+        const modifier = event.ctrlKey || event.metaKey;
+        const key = modifier && event.key.toLowerCase() === 'z' ? 'Undo'
+            : modifier || event.altKey ? null
+            : event.key;
+        if (!key || !handled.has(key)) {
+            return;
+        }
+        event.preventDefault();
+        dotNetRef.invokeMethodAsync('OnKey', key);
+    };
+
+    element.addEventListener('keydown', onKeyDown);
+    detachers.set(element, () => element.removeEventListener('keydown', onKeyDown));
+}
+
 export function focus(element) {
     element?.focus({ preventScroll: true });
 }

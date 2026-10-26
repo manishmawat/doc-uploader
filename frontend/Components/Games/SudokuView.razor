@@ -1,0 +1,274 @@
+@using UploaderDoc.Games
+@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
+@inject GameScoreStore Scores
+
+<div class="game">
+    <div class="game-bar">
+        <div class="difficulty" role="group" aria-label="Difficulty">
+            @foreach (var difficulty in SudokuDifficulty.All)
+            {
+                <FluentButton Appearance="@(difficulty == game.Difficulty ? Appearance.Accent : Appearance.Outline)"
+                              OnClick="@(() => NewGame(difficulty))" Disabled="generating">@difficulty.Name</FluentButton>
+            }
+        </div>
+        <div class="stat"><span>Time</span><strong>@GameClock.Format(clock.Seconds)</strong></div>
+        <div class="stat"><span>Best</span><strong>@(best is { } b ? GameClock.Format(b) : "–")</strong></div>
+        <div class="stat"><span>Hints</span><strong>@game.HintsUsed</strong></div>
+        <FluentButton OnClick="@(() => NewGame(game.Difficulty))" Disabled="generating">New game</FluentButton>
+    </div>
+    <p class="hint">
+        Fill every row, column and 3×3 box with 1–9. Select a cell, then type a digit or use the buttons.
+        Arrow keys move, Backspace clears, N switches notes on and off, Ctrl+Z undoes.
+    </p>
+
+    @if (game.IsSolved)
+    {
+        <p class="result win" role="status">
+            Solved in @GameClock.Format(clock.Seconds)@(game.HintsUsed > 0 ? $" with {game.HintsUsed} hint{(game.HintsUsed == 1 ? "" : "s")}" : "")!
+            @(newBest ? "New best time." : game.HintsUsed > 0 ? "Best times only count games without hints." : "")
+        </p>
+    }
+
+    <div class="sudoku-layout">
+        <div class="grid" tabindex="0" @ref="grid" role="grid" aria-label="Sudoku grid"
+             aria-busy="@(generating ? "true" : "false")">
+            @for (var i = 0; i < Sudoku.CellCount; i++)
+            {
+                var index = i;
+                var value = game.Value(index);
+                <button type="button" role="gridcell" tabindex="-1"
+                        class="@CellClass(index, value)"
+                        aria-label="@CellLabel(index, value)"
+                        @onclick="() => Select(index)">
+                    @if (value != 0)
+                    {
+                        @value
+                    }
+                    else if (HasNotes(index))
+                    {
+                        <span class="notes" aria-hidden="true">
+                            @for (var d = 1; d <= 9; d++)
+                            {
+                                <span>@(game.HasNote(index, d) ? d.ToString() : "")</span>
+                            }
+                        </span>
+                    }
+                </button>
+            }
+        </div>
+
+        <div class="pad">
+            <div class="digits">
+                @{ var counts = game.DigitCounts(); }
+                @for (var d = 1; d <= 9; d++)
+                {
+                    var digit = d;
+                    <button type="button" class="digit" disabled="@(counts[digit] >= 9 || game.IsSolved)"
+                            aria-label="@(notesMode ? $"Note {digit}" : $"Place {digit}")"
+                            @onclick="() => Enter(digit)">
+                        @digit
+                        <small>@(9 - counts[digit])</small>
+                    </button>
+                }
+            </div>
+            <div class="tools">
+                <FluentButton Appearance="@(notesMode ? Appearance.Accent : Appearance.Outline)"
+                              OnClick="ToggleNotesMode" aria-pressed="@notesMode">✏️ Notes @(notesMode ? "on" : "off")</FluentButton>
+                <FluentButton OnClick="@(() => Enter(0))" Disabled="game.IsSolved">Erase</FluentButton>
+                <FluentButton OnClick="Undo" Disabled="@(!game.CanUndo || game.IsSolved)">Undo</FluentButton>
+                <FluentButton OnClick="Hint" Disabled="game.IsSolved">Hint</FluentButton>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private static readonly string[] Keys =
+    [
+        "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "Backspace", "Delete",
+        "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "n", "N", "Undo"
+    ];
+
+    private Sudoku game = null!;
+    private GameClock clock = null!;
+    private ElementReference grid;
+    private IJSObjectReference? module;
+    private DotNetObjectReference<SudokuView>? selfReference;
+    private int selected = 40;
+    private bool notesMode;
+    private bool generating;
+    private int? best;
+    private bool newBest;
+
+    protected override async Task OnInitializedAsync()
+    {
+        clock = new GameClock(() => InvokeAsync(StateHasChanged));
+        game = new Sudoku(SudokuDifficulty.Easy);
+        best = await Scores.GetAsync(BestKey(game.Difficulty));
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+        selfReference = DotNetObjectReference.Create(this);
+        module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/games.js");
+        await module.InvokeVoidAsync("attachKeyInput", grid, selfReference, Keys);
+    }
+
+    [JSInvokable]
+    public async Task OnKey(string key)
+    {
+        switch (key)
+        {
+            case "ArrowUp": Move(-Sudoku.Size); break;
+            case "ArrowDown": Move(Sudoku.Size); break;
+            case "ArrowLeft": Move(-1); break;
+            case "ArrowRight": Move(1); break;
+            case "n" or "N": notesMode = !notesMode; break;
+            case "Undo": game.Undo(); break;
+            case "0" or "Backspace" or "Delete": await Enter(0); break;
+            default: await Enter(key[0] - '0'); break;
+        }
+        StateHasChanged();
+    }
+
+    private async Task NewGame(SudokuDifficulty difficulty)
+    {
+        generating = true;
+        StateHasChanged();
+        await Task.Yield(); // let "busy" render; generating a hard puzzle takes a moment
+
+        game.NewGame(difficulty);
+        clock.Reset();
+        newBest = false;
+        selected = 40;
+        best = await Scores.GetAsync(BestKey(difficulty));
+        generating = false;
+        await FocusGrid();
+    }
+
+    private async Task Select(int index)
+    {
+        selected = index;
+        await FocusGrid();
+    }
+
+    private void Move(int delta)
+    {
+        var row = selected / Sudoku.Size;
+        var next = selected + delta;
+        // Left/right stay in the row and wrap; up/down stay in the column and wrap
+        selected = Math.Abs(delta) == 1
+            ? row * Sudoku.Size + (next % Sudoku.Size + Sudoku.Size) % Sudoku.Size
+            : (next + Sudoku.CellCount) % Sudoku.CellCount;
+    }
+
+    private async Task Enter(int digit)
+    {
+        if (game.IsSolved || game.IsGiven(selected))
+            return;
+
+        if (notesMode && digit != 0)
+            game.ToggleNote(selected, digit);
+        else
+            game.SetValue(selected, digit);
+
+        await AfterChange();
+        await FocusGrid();
+    }
+
+    private async Task Hint()
+    {
+        if (game.Hint(selected) is { } cell)
+            selected = cell;
+        await AfterChange();
+        await FocusGrid();
+    }
+
+    private async Task Undo()
+    {
+        game.Undo();
+        await FocusGrid();
+    }
+
+    private async Task ToggleNotesMode()
+    {
+        notesMode = !notesMode;
+        await FocusGrid();
+    }
+
+    private async Task AfterChange()
+    {
+        if (!game.IsSolved)
+        {
+            clock.Start();
+            return;
+        }
+
+        clock.Stop();
+        if (game.HintsUsed == 0 && (best is null || clock.Seconds < best))
+        {
+            best = clock.Seconds;
+            newBest = true;
+            await Scores.SetAsync(BestKey(game.Difficulty), clock.Seconds);
+        }
+    }
+
+    private async Task FocusGrid()
+    {
+        if (module is not null)
+            await module.InvokeVoidAsync("focus", grid);
+    }
+
+    private bool HasNotes(int index) => Enumerable.Range(1, 9).Any(d => game.HasNote(index, d));
+
+    private string CellClass(int index, int value)
+    {
+        var (row, col) = (index / Sudoku.Size, index % Sudoku.Size);
+        var selectedValue = game.Value(selected);
+        var classes = new List<string> { "cell" };
+
+        if (col is 2 or 5) classes.Add("box-right");
+        if (row is 2 or 5) classes.Add("box-bottom");
+        if (game.IsGiven(index)) classes.Add("given");
+        else if (game.IsHinted(index)) classes.Add("hinted");
+        if (index == selected) classes.Add("selected");
+        else if (Sudoku.Peers(selected).Contains(index)) classes.Add("peer");
+        if (value != 0 && value == selectedValue && index != selected) classes.Add("same");
+        if (game.HasConflict(index)) classes.Add("conflict");
+        return string.Join(' ', classes);
+    }
+
+    private string CellLabel(int index, int value)
+    {
+        var position = $"Row {index / Sudoku.Size + 1}, column {index % Sudoku.Size + 1}";
+        if (value == 0)
+        {
+            var notes = Enumerable.Range(1, 9).Where(d => game.HasNote(index, d)).ToArray();
+            return notes.Length > 0 ? $"{position}, empty, notes {string.Join(" ", notes)}" : $"{position}, empty";
+        }
+        var kind = game.IsGiven(index) ? "clue" : game.IsHinted(index) ? "hint" : "entered";
+        return $"{position}, {value} ({kind}){(game.HasConflict(index) ? ", conflicts" : "")}";
+    }
+
+    private static string BestKey(SudokuDifficulty difficulty) => $"sudoku.best.{difficulty.Name}";
+
+    public async ValueTask DisposeAsync()
+    {
+        clock.Dispose();
+        if (module is not null)
+        {
+            try
+            {
+                await module.InvokeVoidAsync("detachDirectionalInput", grid);
+                await module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+        selfReference?.Dispose();
+    }
+}
