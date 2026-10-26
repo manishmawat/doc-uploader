@@ -14,7 +14,7 @@ A Blazor WebAssembly app for uploading documents to Azure Blob Storage and worki
 | **PDF Merge** (`/pdfmerge`) | Combine up to 10 PDFs (50 MB each) into one, in the order selected. | No |
 | **File to PDF** (`/fileconvert`) | Convert up to 20 images (JPEG, PNG, BMP, TIFF, WEBP) into A4 PDFs. | No |
 | **PDF Optimizer** (`/pdfoptimize`) | Reduce PDF file size. | No |
-| **Games** (`/games`) | 2048, Minesweeper and Memory match. They run entirely in the browser, and best scores are saved on the device. | No |
+| **Games** (`/games`) | 2048, Minesweeper, Memory match and Sudoku (generated puzzles with one solution, three difficulties, notes, hints and undo). They run entirely in the browser, and best scores are saved on the device. | No |
 
 PDF merge, conversion and optimization run entirely in the browser (iText7 on WebAssembly). No file leaves the user's machine for these tools.
 
@@ -61,7 +61,7 @@ Both sides only accept messages from the expected window and origin. Downloads u
 ```
 frontend/                 Blazor WebAssembly app (UploaderDoc.csproj)
   Pages/                  Docimport, PdfMerge, FileConverter, PdfOptimize, Games, MyDocuments, Authentication
-  Games/                  Game rules (2048, Minesweeper, Memory match) as plain C#, unit-tested
+  Games/                  Game rules (2048, Minesweeper, Memory match, Sudoku) as plain C#, unit-tested
   Components/Games/       Game UI components
   Services/               DocumentUploadService (calls the API) and the PDF services
   wwwroot/                appsettings.json (local), appsettings.Production.json, staticwebapp.config.json
