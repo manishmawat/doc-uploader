@@ -1,0 +1,141 @@
+@using UploaderDoc.Games
+@implements IDisposable
+@inject GameScoreStore Scores
+
+<div class="game">
+    <div class="game-bar">
+        <div class="difficulty" role="group" aria-label="Difficulty">
+            @foreach (var difficulty in MinesweeperDifficulty.All)
+            {
+                <FluentButton Appearance="@(difficulty == game.Difficulty ? Appearance.Accent : Appearance.Outline)"
+                              OnClick="@(() => NewGame(difficulty))">@difficulty.Name</FluentButton>
+            }
+        </div>
+        <div class="stat"><span>Mines</span><strong>@game.FlagsLeft</strong></div>
+        <div class="stat"><span>Time</span><strong>@GameClock.Format(clock.Seconds)</strong></div>
+        <div class="stat"><span>Best</span><strong>@(best is { } b ? GameClock.Format(b) : "–")</strong></div>
+        <FluentButton Appearance="@(flagMode ? Appearance.Accent : Appearance.Outline)"
+                      OnClick="@(() => flagMode = !flagMode)" aria-pressed="@flagMode">
+            🚩 Flag mode
+        </FluentButton>
+        <FluentButton OnClick="@(() => NewGame(game.Difficulty))">New game</FluentButton>
+    </div>
+    <p class="hint">
+        Open every cell without a mine. Numbers count the mines next to a cell.
+        Right-click to flag (or turn on Flag mode on touch screens). The first click is always safe.
+    </p>
+
+    @if (game.State == MinesweeperState.Won)
+    {
+        <p class="result win" role="status">You cleared the board in @GameClock.Format(clock.Seconds)! @(newBest ? "New best time." : "")</p>
+    }
+    else if (game.State == MinesweeperState.Lost)
+    {
+        <p class="result lose" role="status">Boom! You hit a mine.</p>
+    }
+
+    <div class="board-scroll">
+        <div class="board" style="grid-template-columns: repeat(@game.Cols, var(--cell-size));"
+             role="grid" aria-label="Minesweeper board">
+            @for (var r = 0; r < game.Rows; r++)
+            {
+                @for (var c = 0; c < game.Cols; c++)
+                {
+                    var (row, col) = (r, c);
+                    var cell = game[row, col];
+                    <button type="button" role="gridcell" class="@CellClass(cell)"
+                            disabled="@(game.IsFinished && !cell.IsRevealed && !cell.IsFlagged)"
+                            aria-label="@CellLabel(cell, row, col)"
+                            @onclick="() => OnClick(row, col)"
+                            @oncontextmenu="() => OnFlag(row, col)" @oncontextmenu:preventDefault="true">
+                        @CellText(cell)
+                    </button>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private Minesweeper game = new(MinesweeperDifficulty.Easy);
+    private GameClock clock = null!;
+    private bool flagMode;
+    private int? best;
+    private bool newBest;
+
+    protected override async Task OnInitializedAsync()
+    {
+        clock = new GameClock(() => InvokeAsync(StateHasChanged));
+        best = await Scores.GetAsync(BestKey(game.Difficulty));
+    }
+
+    private async Task NewGame(MinesweeperDifficulty difficulty)
+    {
+        game.NewGame(difficulty);
+        clock.Reset();
+        newBest = false;
+        best = await Scores.GetAsync(BestKey(difficulty));
+    }
+
+    private async Task OnClick(int row, int col)
+    {
+        if (flagMode)
+        {
+            OnFlag(row, col);
+            return;
+        }
+
+        game.Reveal(row, col);
+        if (game.State == MinesweeperState.Playing)
+            clock.Start();
+
+        if (game.IsFinished)
+        {
+            clock.Stop();
+            if (game.State == MinesweeperState.Won && (best is null || clock.Seconds < best))
+            {
+                best = clock.Seconds;
+                newBest = true;
+                await Scores.SetAsync(BestKey(game.Difficulty), clock.Seconds);
+            }
+        }
+    }
+
+    private void OnFlag(int row, int col) => game.ToggleFlag(row, col);
+
+    private static string BestKey(MinesweeperDifficulty difficulty) => $"minesweeper.best.{difficulty.Name}";
+
+    private static string CellClass(MinesweeperCell cell) =>
+        cell switch
+        {
+            { Exploded: true } => "cell revealed exploded",
+            { IsRevealed: true, IsMine: true } => "cell revealed mine",
+            { IsRevealed: true } => $"cell revealed n{cell.AdjacentMines}",
+            { IsFlagged: true } => "cell flagged",
+            _ => "cell"
+        };
+
+    private static string CellText(MinesweeperCell cell) =>
+        cell switch
+        {
+            { IsRevealed: true, IsMine: true } => "💣",
+            { IsRevealed: true, AdjacentMines: > 0 } => cell.AdjacentMines.ToString(),
+            { IsRevealed: true } => "",
+            { IsFlagged: true } => "🚩",
+            _ => ""
+        };
+
+    private static string CellLabel(MinesweeperCell cell, int row, int col)
+    {
+        var state = cell switch
+        {
+            { IsRevealed: true, IsMine: true } => "mine",
+            { IsRevealed: true } => cell.AdjacentMines == 0 ? "empty" : $"{cell.AdjacentMines} adjacent mines",
+            { IsFlagged: true } => "flagged",
+            _ => "hidden"
+        };
+        return $"Row {row + 1}, column {col + 1}, {state}";
+    }
+
+    public void Dispose() => clock.Dispose();
+}

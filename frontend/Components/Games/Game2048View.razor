@@ -1,0 +1,123 @@
+@using UploaderDoc.Games
+@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
+@inject GameScoreStore Scores
+
+<div class="game">
+    <div class="game-bar">
+        <div class="stat"><span>Score</span><strong>@game.Score</strong></div>
+        <div class="stat"><span>Best</span><strong>@best</strong></div>
+        <FluentButton Appearance="Appearance.Accent" OnClick="NewGame">New game</FluentButton>
+    </div>
+    <p class="hint">Merge tiles to reach 2048. Click the board, then use the arrow keys or WASD, or swipe.</p>
+
+    <div class="board" tabindex="0" @ref="board"
+         role="grid" aria-label="2048 board, score @game.Score">
+        @for (var r = 0; r < Game2048.Size; r++)
+        {
+            @for (var c = 0; c < Game2048.Size; c++)
+            {
+                var value = game[r, c];
+                <div class="tile @TileClass(value)" role="gridcell">@(value == 0 ? "" : value.ToString())</div>
+            }
+        }
+
+        @if (game.IsGameOver)
+        {
+            <div class="overlay" role="status">
+                <strong>Game over</strong>
+                <FluentButton Appearance="Appearance.Accent" OnClick="NewGame">Try again</FluentButton>
+            </div>
+        }
+        else if (game.HasWon && !keepPlaying)
+        {
+            <div class="overlay win" role="status">
+                <strong>You made 2048!</strong>
+                <div class="overlay-actions">
+                    <FluentButton Appearance="Appearance.Accent" OnClick="KeepPlaying">Keep playing</FluentButton>
+                    <FluentButton OnClick="NewGame">New game</FluentButton>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private const string BestKey = "2048.best";
+
+    private readonly Game2048 game = new();
+    private ElementReference board;
+    private IJSObjectReference? module;
+    private DotNetObjectReference<Game2048View>? selfReference;
+    private int best;
+    private bool keepPlaying;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        best = await Scores.GetAsync(BestKey) ?? 0;
+        selfReference = DotNetObjectReference.Create(this);
+        module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/games.js");
+        await module.InvokeVoidAsync("attachDirectionalInput", board, selfReference);
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public async Task OnDirection(string direction)
+    {
+        var showingOverlay = game.IsGameOver || (game.HasWon && !keepPlaying);
+        if (showingOverlay || !Enum.TryParse<MoveDirection>(direction, out var move) || !game.Move(move))
+            return;
+
+        if (game.Score > best)
+        {
+            best = game.Score;
+            await Scores.SetAsync(BestKey, best);
+        }
+        StateHasChanged();
+    }
+
+    private async Task NewGame()
+    {
+        game.NewGame();
+        keepPlaying = false;
+        await FocusBoard();
+    }
+
+    private async Task KeepPlaying()
+    {
+        keepPlaying = true;
+        await FocusBoard();
+    }
+
+    private async Task FocusBoard()
+    {
+        if (module is not null)
+            await module.InvokeVoidAsync("focus", board);
+    }
+
+    private static string TileClass(int value) => value switch
+    {
+        0 => "empty",
+        <= 2048 => $"t{value}",
+        _ => "tsuper"
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        if (module is not null)
+        {
+            try
+            {
+                await module.InvokeVoidAsync("detachDirectionalInput", board);
+                await module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+        selfReference?.Dispose();
+    }
+}

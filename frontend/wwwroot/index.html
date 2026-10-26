@@ -10,9 +10,10 @@
     <link href="css/app.css" rel="stylesheet" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <link href="UploaderDoc.styles.css" rel="stylesheet" />
-    <!-- <link href="manifest.webmanifest" rel="manifest" /> -->
-    <!-- <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
-    <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png" /> -->
+    <link href="manifest.webmanifest" rel="manifest" />
+    <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png" />
+    <meta name="theme-color" content="#0f6cbd" />
 </head>
 
 <body>
@@ -22,6 +23,12 @@
             <circle r="40%" cx="50%" cy="50%" />
         </svg>
         <div class="loading-progress-text"></div>
+    </div>
+
+    <div id="update-banner" role="status" hidden>
+        A new version of UploaderDoc is available.
+        <button type="button" class="reload">Reload</button>
+        <button type="button" class="dismiss" aria-label="Dismiss">🗙</button>
     </div>
 
     <div id="blazor-error-ui">
@@ -103,7 +110,41 @@
             });
         };
     </script>
-    <!-- <script>navigator.serviceWorker.register('service-worker.js');</script> -->
+    <script>
+        // Offline support (service-worker.published.js). A deploy installs a new worker in the
+        // background; it only takes over when the user clicks Reload on the update banner.
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' }).then(registration => {
+                const banner = document.getElementById('update-banner');
+                const showUpdate = worker => {
+                    banner.hidden = false;
+                    banner.querySelector('.reload').onclick = () => worker.postMessage({ type: 'SKIP_WAITING' });
+                    banner.querySelector('.dismiss').onclick = () => { banner.hidden = true; };
+                };
+
+                // Only offer an update when a previous version is in control (not on the very first visit)
+                if (registration.waiting && navigator.serviceWorker.controller) {
+                    showUpdate(registration.waiting);
+                }
+                registration.addEventListener('updatefound', () => {
+                    const worker = registration.installing;
+                    worker?.addEventListener('statechange', () => {
+                        if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                            showUpdate(worker);
+                        }
+                    });
+                });
+
+                let reloading = false;
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if (!reloading) {
+                        reloading = true;
+                        window.location.reload();
+                    }
+                });
+            }).catch(error => console.warn('Service worker registration failed', error));
+        }
+    </script>
 </body>
 
 </html>

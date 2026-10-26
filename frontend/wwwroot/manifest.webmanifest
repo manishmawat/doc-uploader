@@ -1,0 +1,23 @@
+{
+  "name": "UploaderDoc",
+  "short_name": "UploaderDoc",
+  "description": "Upload documents, work with PDFs in the browser, and play a few games offline.",
+  "id": "./",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f6cbd",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}

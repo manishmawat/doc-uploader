@@ -13,4 +13,7 @@
   <Folder Name="/frontend/">
     <Project Path="frontend/UploaderDoc.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/UploaderDoc.Tests/UploaderDoc.Tests.csproj" />
+  </Folder>
 </Solution>

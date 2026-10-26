@@ -29,6 +29,9 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore frontend/UploaderDoc.csproj
 
+      - name: Test game rules
+        run: dotnet test tests/UploaderDoc.Tests
+
       - name: Build
         run: dotnet build frontend/UploaderDoc.csproj --configuration Release --no-restore
 
