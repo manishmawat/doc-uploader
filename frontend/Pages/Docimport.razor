@@ -40,38 +40,40 @@
 {
     <div class="mt-3">
         <h4>Files to upload (@selectedFiles.Count):</h4>
-        <FluentDataGrid Items="@selectedFiles.AsQueryable()" class="file-grid">
-            <PropertyColumn Property="@(f => f.Name)" Title="File Name" />
-            <PropertyColumn Property="@(f => FormatFileSize(f.Size))" Title="Size" />
-            <TemplateColumn Title="Status">
-                @switch (context.State)
-                {
-                    case UploadState.Uploading:
-                        <FluentProgressRing Width="16px" /> <span>Uploading...</span>
-                        break;
-                    case UploadState.Uploaded:
-                        <FluentIcon Value="@(new Icons.Regular.Size16.CheckmarkCircle())" Color="Color.Success" /> <span>Uploaded</span>
-                        break;
-                    case UploadState.Failed:
-                        <FluentIcon Value="@(new Icons.Regular.Size16.ErrorCircle())" Color="Color.Error" /> <span title="@context.Error">Failed: @context.Error</span>
-                        break;
-                    default:
-                        <span>Ready to upload</span>
-                        break;
-                }
-            </TemplateColumn>
-            <TemplateColumn Title="Actions">
-                @if (context.State is UploadState.Pending or UploadState.Failed)
-                {
-                    <FluentButton Appearance="Appearance.Lightweight"
-                                  OnClick="@(() => RemoveFile(context))"
-                                  Disabled="@isUploading"
-                                  IconStart="@(new Icons.Regular.Size16.Delete())">
-                        Remove
-                    </FluentButton>
-                }
-            </TemplateColumn>
-        </FluentDataGrid>
+        <div class="table-scroll">
+            <FluentDataGrid Items="@selectedFiles.AsQueryable()" class="file-grid">
+                <PropertyColumn Property="@(f => f.Name)" Title="File Name" />
+                <PropertyColumn Property="@(f => FormatFileSize(f.Size))" Title="Size" />
+                <TemplateColumn Title="Status">
+                    @switch (context.State)
+                    {
+                        case UploadState.Uploading:
+                            <FluentProgressRing Width="16px" /> <span>Uploading...</span>
+                            break;
+                        case UploadState.Uploaded:
+                            <FluentIcon Value="@(new Icons.Regular.Size16.CheckmarkCircle())" Color="Color.Success" /> <span>Uploaded</span>
+                            break;
+                        case UploadState.Failed:
+                            <FluentIcon Value="@(new Icons.Regular.Size16.ErrorCircle())" Color="Color.Error" /> <span title="@context.Error">Failed: @context.Error</span>
+                            break;
+                        default:
+                            <span>Ready to upload</span>
+                            break;
+                    }
+                </TemplateColumn>
+                <TemplateColumn Title="Actions">
+                    @if (context.State is UploadState.Pending or UploadState.Failed)
+                    {
+                        <FluentButton Appearance="Appearance.Lightweight"
+                                      OnClick="@(() => RemoveFile(context))"
+                                      Disabled="@isUploading"
+                                      IconStart="@(new Icons.Regular.Size16.Delete())">
+                            Remove
+                        </FluentButton>
+                    }
+                </TemplateColumn>
+            </FluentDataGrid>
+        </div>
     </div>
 
     <div class="mt-3 d-flex gap-2">

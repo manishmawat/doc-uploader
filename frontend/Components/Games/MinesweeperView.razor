@@ -35,7 +35,7 @@
     }
 
     <div class="board-scroll">
-        <div class="board" style="grid-template-columns: repeat(@game.Cols, var(--cell-size));"
+        <div class="board" style="grid-template-columns: repeat(@game.Cols, var(--cell-size)); --cols: @game.Cols;"
              role="grid" aria-label="Minesweeper board">
             @for (var r = 0; r < game.Rows; r++)
             {

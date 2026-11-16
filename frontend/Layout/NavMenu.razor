@@ -1,5 +1,8 @@
-﻿<div class="navmenu">
-    <input type="checkbox" title="Menu expand/collapse toggle" id="navmenu-toggle" class="navmenu-icon" />
+﻿@implements IDisposable
+@inject NavigationManager Navigation
+
+<div class="navmenu">
+    <input type="checkbox" title="Menu expand/collapse toggle" id="navmenu-toggle" class="navmenu-icon" @bind="menuOpen" />
     <label for="navmenu-toggle" class="navmenu-icon"><FluentIcon Value="@(new Icons.Regular.Size20.Navigation())" Color="Color.Fill" /></label>
     <nav class="sitenav" aria-labelledby="main-menu">
         <FluentNavMenu Id="main-menu" Width="250" Collapsible="true" Title="Navigation menu" @bind-Expanded="expanded" CustomToggle="true">
@@ -19,4 +22,19 @@
 
 @code {
     private bool expanded = true;
+
+    /// <summary>The phone-size menu (hamburger); closed again after each navigation.</summary>
+    private bool menuOpen;
+
+    protected override void OnInitialized() => Navigation.LocationChanged += CloseMenu;
+
+    private void CloseMenu(object? sender, LocationChangedEventArgs e)
+    {
+        if (!menuOpen)
+            return;
+        menuOpen = false;
+        StateHasChanged();
+    }
+
+    public void Dispose() => Navigation.LocationChanged -= CloseMenu;
 }

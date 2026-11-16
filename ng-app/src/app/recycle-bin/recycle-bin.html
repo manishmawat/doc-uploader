@@ -36,9 +36,9 @@
         @for (item of items(); track item.name) {
           <tr>
             <td class="name">{{ item.name }}</td>
-            <td class="num">{{ formatSize(item.sizeBytes) }}</td>
-            <td>{{ item.deletedOn | date: 'medium' }}</td>
-            <td>{{ item.purgeOn | date: 'mediumDate' }}</td>
+            <td class="num meta" data-label="Size">{{ formatSize(item.sizeBytes) }}</td>
+            <td class="meta" data-label="Deleted">{{ item.deletedOn | date: 'medium' }}</td>
+            <td class="meta" data-label="Deleted permanently">{{ item.purgeOn | date: 'mediumDate' }}</td>
             <td class="actions">
               @if (confirmingDelete() === item.name) {
                 <span>Delete forever?</span>

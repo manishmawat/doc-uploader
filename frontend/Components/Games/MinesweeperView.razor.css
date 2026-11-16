@@ -20,6 +20,13 @@
     user-select: none;
 }
 
+/* Phones: fill the width (Easy fits; Medium/Hard keep a minimum size and scroll sideways) */
+@media (max-width: 600px) {
+    .board {
+        --cell-size: clamp(28px, calc((100vw - 64px) / var(--cols) - 2px), 40px);
+    }
+}
+
 .cell {
     width: var(--cell-size);
     height: var(--cell-size);

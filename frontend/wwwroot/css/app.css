@@ -12,6 +12,47 @@ body {
     display: none;
 }
 
+.header-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #ffffff;
+    font-size: 20px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+/* Blazor's FocusOnNavigate focuses the page heading after navigation; don't draw a box around it */
+h1:focus {
+    outline: none;
+}
+
+/* The pages use a few Bootstrap utility class names, but Bootstrap itself isn't loaded */
+.mt-3 { margin-top: 1rem; }
+.mb-3 { margin-bottom: 1rem; }
+.mb-4 { margin-bottom: 1.5rem; }
+.d-block { display: block; }
+.d-flex { display: flex; flex-wrap: wrap; }
+.gap-2 { gap: 0.5rem; }
+.align-items-center { align-items: center; }
+.justify-content-between { justify-content: space-between; }
+.text-muted { color: var(--neutral-foreground-hint); }
+.text-success { color: #107c10; }
+.badge {
+    display: inline-block;
+    padding: 0.15em 0.5em;
+    border-radius: 999px;
+    font-size: 0.8em;
+}
+.bg-secondary { background: var(--neutral-layer-3); }
+
+/* Wide tables (e.g. the upload list) scroll sideways inside the page instead of widening it */
+.table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
 .main {
     min-height: calc(100dvh - 86px);
     color: var(--neutral-foreground-rest);
@@ -236,6 +277,31 @@ code {
         margin: 0.5rem 3rem 0.5rem 1.5rem !important;
     }
 
+    /* Leave room on the left for the menu button */
+    .header-brand {
+        margin-left: 36px;
+        font-size: 18px;
+    }
+
+    .content {
+        padding: 0.5rem 1rem;
+    }
+
+    /* Let the whole page scroll on phones instead of a fixed-height inner box */
+    .body-content {
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    .content h1 {
+        font-size: 1.5rem;
+    }
+
+    /* PDF tool pages pad .card-body in their own <style> blocks; the card already has padding */
+    .content fluent-card .card-body {
+        padding: 0;
+    }
+
     [dir="rtl"] .header-gutters {
         margin: 0.5rem 1.5rem 0.5rem 3rem !important;
     }
@@ -252,6 +318,8 @@ code {
 
     #main-menu {
         width: 100% !important;
+        box-sizing: border-box;
+        overflow-x: hidden;
     }
 
         #main-menu > div:first-child:is(.expander) {
@@ -280,15 +348,15 @@ code {
         display: block;
         position: absolute;
         top: 15px;
-        left: unset;
-        right: 20px;
+        left: 16px;
+        right: unset;
         width: 20px;
         height: 20px;
         border: none;
     }
 
     [dir="rtl"] .navmenu-icon {
-        left: 20px;
-        right: unset;
+        left: unset;
+        right: 16px;
     }
 }
