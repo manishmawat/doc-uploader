@@ -1,6 +1,7 @@
 ﻿@using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.WebAssembly.Authentication
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
 <AuthorizeView>
     <Authorized>
@@ -24,8 +25,17 @@
 </AuthorizeView>
 
 @code {
-    private void BeginLogOut()
+    private async Task BeginLogOut()
     {
+        // Don't leave this user's saved cards on the device (see Cards/CardCache)
+        try
+        {
+            await using var module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/cards.js");
+            await module.InvokeVoidAsync("clearCardCaches", UploaderDoc.Cards.CardCache.KeyPrefix);
+        }
+        catch (JSException)
+        {
+        }
         Navigation.NavigateToLogout("authentication/logout");
     }
 

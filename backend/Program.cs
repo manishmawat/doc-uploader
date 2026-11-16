@@ -60,6 +60,7 @@ builder.Services.AddSingleton(sp =>
 
 // Register blob storage service
 builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
+builder.Services.AddScoped<ICardStore, BlobCardStore>();
 
 // Add API documentation
 builder.Services.AddOpenApi();

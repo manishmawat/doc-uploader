@@ -1,0 +1,80 @@
+.card-display {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    color: #111111;
+    outline: none;
+}
+
+.card-display-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    color: #ffffff;
+    font-size: 20px;
+}
+
+.card-display-close {
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.card-display-body {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 24px 16px;
+}
+
+/* Bars fill the width (turn the phone sideways for long codes); square codes fit the screen */
+.card-display-barcode.linear {
+    width: min(100%, 720px);
+}
+
+.card-display-barcode.square {
+    width: min(80vw, 60vh, 420px);
+}
+
+.card-display-barcode ::deep svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.card-display-value {
+    font: 600 clamp(18px, 6vw, 28px) / 1.2 ui-monospace, "Cascadia Mono", Consolas, monospace;
+    letter-spacing: 0.08em;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+.card-display-tip {
+    margin: 0;
+    color: #616161;
+    font-size: 13px;
+    text-align: center;
+}
+
+.card-display-photo {
+    display: block;
+    width: min(100%, 420px);
+    max-height: 32vh;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}

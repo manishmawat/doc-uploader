@@ -1,0 +1,290 @@
+@using UploaderDoc.Cards
+@implements IAsyncDisposable
+@inject BarcodeService Barcodes
+@inject CardPhotos Photos
+@inject IJSRuntime JSRuntime
+
+<div class="card-dialog-backdrop" @onclick="Cancel">
+    <div class="card-dialog" role="dialog" aria-modal="true" aria-labelledby="card-editor-title" @onclick:stopPropagation="true">
+        <h2 id="card-editor-title">@(Card is null ? "Add card" : "Edit card")</h2>
+
+        <label class="field">
+            <span>Name</span>
+            <input type="text" @bind="name" @bind:event="oninput" maxlength="40" placeholder="e.g. Fitness club" />
+        </label>
+
+        <div class="scan">
+            <input type="file" id="card-photo" accept="image/*" capture="environment" class="visually-hidden"
+                   @ref="photoInput" @onchange="ReadPhotoAsync" disabled="@reading" />
+            <label for="card-photo" class="scan-button @(reading ? "busy" : "")">
+                📷 @(reading ? "Reading barcode…" : "Scan barcode from a photo")
+            </label>
+            @if (scanMessage is not null)
+            {
+                <p class="scan-message @(scanFound ? "ok" : "warn")" role="status">@scanMessage</p>
+            }
+        </div>
+
+        <div class="field-row">
+            <label class="field">
+                <span>Barcode type</span>
+                <select @bind="format">
+                    @foreach (var (id, displayName) in BarcodeFormats.All)
+                    {
+                        <option value="@id">@displayName</option>
+                    }
+                </select>
+            </label>
+            <label class="field grow">
+                <span>Number or text</span>
+                <input type="text" @bind="value" @bind:event="oninput" inputmode="@(IsNumeric ? "numeric" : "text")"
+                       autocomplete="off" placeholder="Printed under the barcode" />
+            </label>
+        </div>
+
+        <div class="field">
+            <span>Colour</span>
+            <div class="swatches" role="radiogroup" aria-label="Card colour">
+                @foreach (var swatch in Swatches)
+                {
+                    <button type="button" class="swatch @(swatch == color ? "selected" : "")" style="background:@swatch"
+                            role="radio" aria-checked="@(swatch == color ? "true" : "false")" aria-label="Colour @swatch"
+                            @onclick="() => color = swatch"></button>
+                }
+            </div>
+        </div>
+
+        <div class="field">
+            <span>Card photo (optional)</span>
+            <div class="photo-row">
+                @if (ShownPhotoUrl is { } url)
+                {
+                    <img class="photo-thumb" src="@url" alt="Photo of the card" />
+                }
+                <div class="photo-actions">
+                    <input type="file" id="card-picture" accept="image/*" capture="environment" class="visually-hidden"
+                           @ref="pictureInput" @onchange="TakePictureAsync" disabled="@takingPicture" />
+                    <label for="card-picture" class="photo-button @(takingPicture ? "busy" : "")">
+                        📷 @(ShownPhotoUrl is null ? "Take photo of the card" : "Retake photo")
+                    </label>
+                    @if (scanPhoto is not null && !usingScanPhoto)
+                    {
+                        <button type="button" class="link-button" @onclick="UseScanPhotoAsync">Use the barcode photo as the card photo</button>
+                    }
+                    @if (ShownPhotoUrl is not null)
+                    {
+                        <button type="button" class="link-button" @onclick="RemovePhotoAsync">Remove photo</button>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="preview" aria-live="polite">
+            @if (ValidationError is { } problem)
+            {
+                <p class="preview-empty">@problem</p>
+            }
+            else
+            {
+                <div class="preview-barcode @(BarcodeFormats.IsLinear(format) ? "linear" : "square")">@((MarkupString)Barcodes.ToSvg(format, value))</div>
+            }
+        </div>
+
+        @if (Error is not null)
+        {
+            <p class="dialog-error" role="alert">@Error</p>
+        }
+        @if (Offline)
+        {
+            <p class="dialog-error" role="alert">You're offline. Connect to the internet to save cards.</p>
+        }
+
+        <div class="dialog-actions">
+            @if (Card is not null)
+            {
+                @if (confirmingDelete)
+                {
+                    <span class="confirm">Delete this card?</span>
+                    <FluentButton Appearance="Appearance.Accent" OnClick="OnDelete" Loading="Busy" Disabled="Offline">Delete</FluentButton>
+                    <FluentButton OnClick="@(() => confirmingDelete = false)">Keep</FluentButton>
+                }
+                else
+                {
+                    <FluentButton Appearance="Appearance.Lightweight" OnClick="@(() => confirmingDelete = true)" Disabled="Busy || Offline">Delete</FluentButton>
+                }
+            }
+            <span class="spacer"></span>
+            <FluentButton OnClick="Cancel" Disabled="Busy">Cancel</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="SaveAsync" Loading="Busy"
+                          Disabled="@(!CanSave)">Save</FluentButton>
+        </div>
+    </div>
+</div>
+
+@code {
+    /// <summary>The card being edited, or null to add a new one.</summary>
+    [Parameter] public BarcodeCard? Card { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool Offline { get; set; }
+    [Parameter] public string? Error { get; set; }
+
+    /// <summary>The card's current photo, if it has one.</summary>
+    [Parameter] public string? PhotoUrl { get; set; }
+
+    [Parameter] public EventCallback<CardEditResult> OnSave { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    internal static readonly string[] Swatches =
+        ["#0f6cbd", "#107c10", "#c50f1f", "#ca5010", "#5c2e91", "#038387", "#c239b3", "#424242"];
+
+    private ElementReference photoInput;
+    private string name = "";
+    private string format = "CODE_128";
+    private string value = "";
+    private string color = Swatches[0];
+    private bool reading;
+    private string? scanMessage;
+    private bool scanFound;
+    private bool confirmingDelete;
+
+    private ElementReference pictureInput;
+    private bool takingPicture;
+    private byte[]? newPhoto;        // photo chosen in this edit, not saved yet
+    private string? newPhotoUrl;
+    private bool removePhoto;
+    private byte[]? scanPhoto;       // the photo the barcode was read from
+    private bool usingScanPhoto;
+
+    private string? ShownPhotoUrl => removePhoto ? null : newPhotoUrl ?? PhotoUrl;
+
+    protected override void OnInitialized()
+    {
+        if (Card is not null)
+            (name, format, value, color) = (Card.Name, Card.Format, Card.Value, Card.Color);
+    }
+
+    private string? ValidationError => Barcodes.Validate(format, value);
+
+    private bool CanSave => !Busy && !Offline && !string.IsNullOrWhiteSpace(name) && ValidationError is null;
+
+    private bool IsNumeric => format is "EAN_13" or "EAN_8" or "UPC_A" or "UPC_E" or "ITF";
+
+    private async Task ReadPhotoAsync()
+    {
+        reading = true;
+        scanMessage = null;
+        StateHasChanged();
+        try
+        {
+            await using var module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/cards.js");
+            var photo = await module.InvokeAsync<PhotoResult?>("readBarcodeImage", photoInput);
+            if (photo is null)
+                return;
+            scanPhoto = photo.Photo;
+            usingScanPhoto = false;
+
+            var found = photo.Value is not null
+                ? new DecodedBarcode(photo.Format!, photo.Value)
+                : await DecodeAsync(photo);
+
+            if (found is null)
+            {
+                scanFound = false;
+                scanMessage = "No barcode found. Try again closer and straight on, with the barcode filling most of the photo, or type the number printed under it.";
+                return;
+            }
+
+            (format, value, scanFound) = (found.Format, found.Value, true);
+            scanMessage = $"Found {BarcodeFormats.DisplayName(found.Format)}: {found.Value}";
+        }
+        catch (JSException)
+        {
+            scanFound = false;
+            scanMessage = "That photo couldn't be opened. Try another one, or type the number.";
+        }
+        finally
+        {
+            reading = false;
+        }
+    }
+
+    private async Task<DecodedBarcode?> DecodeAsync(PhotoResult photo)
+    {
+        await Task.Yield(); // let "Reading barcode…" show; decoding a large photo takes a moment
+        return Barcodes.Decode(photo.Luminance!, photo.Width, photo.Height);
+    }
+
+    private async Task TakePictureAsync()
+    {
+        takingPicture = true;
+        try
+        {
+            await using var module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/cards.js");
+            if (await module.InvokeAsync<byte[]?>("readCardPhoto", pictureInput) is { } jpeg)
+            {
+                await SetNewPhotoAsync(jpeg);
+                usingScanPhoto = false;
+            }
+        }
+        catch (JSException)
+        {
+            scanFound = false;
+            scanMessage = "That photo couldn't be opened. Try another one.";
+        }
+        finally
+        {
+            takingPicture = false;
+        }
+    }
+
+    private async Task UseScanPhotoAsync()
+    {
+        await SetNewPhotoAsync(scanPhoto!);
+        usingScanPhoto = true;
+    }
+
+    private async Task RemovePhotoAsync()
+    {
+        await Photos.RevokeAsync(newPhotoUrl);
+        (newPhoto, newPhotoUrl, removePhoto, usingScanPhoto) = (null, null, PhotoUrl is not null, false);
+    }
+
+    private async Task SetNewPhotoAsync(byte[] jpeg)
+    {
+        await Photos.RevokeAsync(newPhotoUrl);
+        newPhoto = jpeg;
+        newPhotoUrl = await Photos.PreviewUrlAsync(jpeg);
+        removePhoto = false;
+    }
+
+    private Task SaveAsync() =>
+        CanSave
+            ? OnSave.InvokeAsync(new CardEditResult(new BarcodeCardRequest(name.Trim(), format, value, color), newPhoto, removePhoto))
+            : Task.CompletedTask;
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await Photos.RevokeAsync(newPhotoUrl);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
+    private Task Cancel() => Busy ? Task.CompletedTask : OnCancel.InvokeAsync();
+
+    private class PhotoResult
+    {
+        public string? Format { get; set; }
+        public string? Value { get; set; }
+        public int Width { get; set; }
+        public int Height { get; set; }
+        public byte[]? Luminance { get; set; }
+
+        /// <summary>The photo as a resized JPEG, offered as the card photo</summary>
+        public byte[]? Photo { get; set; }
+    }
+}

@@ -1,0 +1,218 @@
+@page "/cards"
+@using UploaderDoc.Cards
+@using UploaderDoc.Components.Cards
+@implements IAsyncDisposable
+@inject CardsApiClient Api
+@inject CardCache Cache
+@inject CardPhotos Photos
+@inject AuthenticationStateProvider AuthenticationState
+
+<PageTitle>My Cards - UploaderDoc</PageTitle>
+
+<div class="cards-header">
+    <h1>
+        <FluentIcon Value="@(new Icons.Regular.Size24.Wallet())" Color="Color.Accent" />
+        My Cards
+    </h1>
+    <FluentButton Appearance="Appearance.Accent" IconStart="@(new Icons.Regular.Size16.Add())"
+                  OnClick="StartAdd" Disabled="offline">Add card</FluentButton>
+</div>
+<p class="text-muted">
+    Keep the barcodes of your membership and loyalty cards here, and show one at the desk when the card is at home.
+    Your cards are also saved on this device, so they open without a connection.
+</p>
+
+@if (offline)
+{
+    <p class="cards-notice" role="status">You're offline. Showing the copy saved on this device; adding and editing need a connection.</p>
+}
+@if (loadError is not null)
+{
+    <p class="cards-error" role="alert">@loadError</p>
+}
+
+@if (cards is null)
+{
+    <FluentProgressRing />
+}
+else if (cards.Count == 0)
+{
+    <div class="cards-empty">
+        <p>No cards yet.</p>
+        <p class="text-muted">Tap <strong>Add card</strong>, then take a photo of the card's barcode.</p>
+    </div>
+}
+else
+{
+    <div class="card-grid">
+        @foreach (var card in cards)
+        {
+            var photo = photoUrls.GetValueOrDefault(card.Id);
+            <div class="card-tile @(photo is null ? "" : "has-photo")" style="@TileStyle(card.Color, photo)">
+                <button type="button" class="card-tile-main" @onclick="() => showing = card"
+                        aria-label="Show @card.Name barcode">
+                    <span class="card-tile-name">@card.Name</span>
+                    <span class="card-tile-meta">@BarcodeFormats.DisplayName(card.Format) · @Masked(card.Value)</span>
+                </button>
+                <button type="button" class="card-tile-edit" @onclick="() => StartEdit(card)"
+                        aria-label="Edit @card.Name" disabled="@offline">✎</button>
+            </div>
+        }
+    </div>
+}
+
+@if (editorOpen)
+{
+    <CardEditor Card="editing" Busy="saving" Offline="offline" Error="@saveError"
+                PhotoUrl="@(editing is null ? null : photoUrls.GetValueOrDefault(editing.Id))"
+                OnSave="SaveAsync" OnDelete="DeleteAsync" OnCancel="CloseEditor" />
+}
+
+@if (showing is not null)
+{
+    <CardDisplay Card="showing" PhotoUrl="@photoUrls.GetValueOrDefault(showing.Id)" OnClose="@(() => showing = null)" />
+}
+
+@code {
+    private List<BarcodeCard>? cards;
+    private System.Security.Claims.ClaimsPrincipal user = new();
+    private bool offline;
+    private string? loadError;
+
+    private bool editorOpen;
+    private BarcodeCard? editing;
+    private bool saving;
+    private string? saveError;
+    private BarcodeCard? showing;
+
+    /// <summary>Card id -> object URL of its photo (from the device copy or the API)</summary>
+    private readonly Dictionary<string, string> photoUrls = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = (await AuthenticationState.GetAuthenticationStateAsync()).User;
+
+        // Show the saved copy straight away, then refresh from the API
+        cards = await Cache.LoadAsync(user);
+        StateHasChanged();
+
+        try
+        {
+            cards = await Api.ListAsync();
+            offline = false;
+            await Cache.SaveAsync(user, cards);
+        }
+        catch (CardsApiException ex)
+        {
+            offline = ex.IsOffline;
+            loadError = ex.IsOffline ? null : ex.Message;
+            cards ??= [];
+        }
+
+        await LoadPhotosAsync();
+    }
+
+    /// <summary>Loads photos one by one after the cards are shown (the device copy first, then the API).</summary>
+    private async Task LoadPhotosAsync()
+    {
+        foreach (var card in cards!.Where(c => c.PhotoUpdatedOn is not null).ToList())
+        {
+            if (await Photos.GetUrlAsync(user, card) is { } url)
+            {
+                await SetPhotoUrlAsync(card.Id, url);
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task SetPhotoUrlAsync(string cardId, string? url)
+    {
+        if (photoUrls.Remove(cardId, out var old))
+            await Photos.RevokeAsync(old);
+        if (url is not null)
+            photoUrls[cardId] = url;
+    }
+
+    private void StartAdd() => OpenEditor(null);
+
+    private void StartEdit(BarcodeCard card) => OpenEditor(card);
+
+    private void OpenEditor(BarcodeCard? card)
+    {
+        (editing, editorOpen, saveError) = (card, true, null);
+    }
+
+    private void CloseEditor() => (editorOpen, editing) = (false, null);
+
+    private async Task SaveAsync(CardEditResult result) =>
+        await RunAsync(async () =>
+        {
+            var saved = editing is null
+                ? await Api.CreateAsync(result.Card)
+                : await Api.UpdateAsync(editing.Id, result.Card);
+
+            if (result.NewPhoto is { } jpeg)
+            {
+                saved = await Api.SetPhotoAsync(saved.Id, jpeg);
+                await SetPhotoUrlAsync(saved.Id, await Photos.StoreAsync(user, saved, jpeg));
+            }
+            else if (result.RemovePhoto)
+            {
+                saved = await Api.RemovePhotoAsync(saved.Id);
+                await Photos.ForgetAsync(user, saved.Id);
+                await SetPhotoUrlAsync(saved.Id, null);
+            }
+
+            cards = cards!.Where(c => c.Id != saved.Id).Append(saved)
+                .OrderBy(c => c.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+        });
+
+    private async Task DeleteAsync() =>
+        await RunAsync(async () =>
+        {
+            var id = editing!.Id;
+            await Api.DeleteAsync(id);
+            cards = cards!.Where(c => c.Id != id).ToList();
+            await Photos.ForgetAsync(user, id);
+            await SetPhotoUrlAsync(id, null);
+        });
+
+    /// <summary>Saves or deletes through the API, then updates the device copy and closes the editor.</summary>
+    private async Task RunAsync(Func<Task> action)
+    {
+        (saving, saveError) = (true, null);
+        try
+        {
+            await action();
+            await Cache.SaveAsync(user, cards!);
+            CloseEditor();
+        }
+        catch (CardsApiException ex)
+        {
+            offline = ex.IsOffline;
+            saveError = ex.IsOffline ? null : ex.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private static string TileStyle(string color, string? photoUrl) =>
+        photoUrl is null ? $"--tile:{color}" : $"--tile:{color};--photo:url('{photoUrl}')";
+
+    /// <summary>Only the last 4 characters on the tile; the full value shows when the card is opened.</summary>
+    private static string Masked(string value) => value.Length <= 4 ? value : $"•••• {value[^4..]}";
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            foreach (var url in photoUrls.Values)
+                await Photos.RevokeAsync(url);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+}

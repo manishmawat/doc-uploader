@@ -11,6 +11,7 @@ A Blazor WebAssembly app for uploading documents to Azure Blob Storage and worki
 |---|---|---|
 | **Upload Documents** (`/docimport`) | Two-step upload. Select up to 4 files (10 MB each) and review the list, then confirm. Each file shows its status, and failed uploads can be retried. Files are stored under a folder named after the signed-in user's email. | Required |
 | **My Documents** (`/mydocuments`) | List and download your own uploaded files, **share** a file with a time-limited link, and **delete** to a **recycle bin** (restore or delete forever; purged after 14 days). This tab is a separate **Angular** app (`ng-app/`) embedded in an iframe; see [Embedded Angular app](#embedded-angular-app). | Required |
+| **My Cards** (`/cards`) | Save the barcodes of membership and loyalty cards (gym, library, supermarket) and show one full screen at the desk. Add a card by taking a photo of its barcode (read in the browser), or type the number. Optionally keep a photo of the card itself. Cards sync through the API and a copy is kept on the device, so they open offline. See [My Cards](#my-cards). | Required |
 | **PDF Merge** (`/pdfmerge`) | Combine up to 10 PDFs (50 MB each) into one, in the order selected. | No |
 | **File to PDF** (`/fileconvert`) | Convert up to 20 images (JPEG, PNG, BMP, TIFF, WEBP) into A4 PDFs. | No |
 | **PDF Optimizer** (`/pdfoptimize`) | Reduce PDF file size. | No |
@@ -56,6 +57,14 @@ Both sides only accept messages from the expected window and origin. Downloads u
 
 **Recycle bin.** `DELETE /api/Documents/{name}` moves the file to `.recycle-bin/<email>/<name>` in the same container, using a server-side copy and then a delete. `GET /api/Documents/recycle-bin` lists the bin, `POST …/recycle-bin/{name}/restore` moves a file back (409 if the name is taken), and `DELETE …/recycle-bin/{name}` deletes it permanently. The bin is app-level rather than Azure soft delete, because Azurite doesn't support soft delete, so it works the same locally. In Azure a lifecycle rule purges it after 14 days (see [AZURE_SETUP.md](docs/AZURE_SETUP.md#recycle-bin-purge-rule)).
 
+## My Cards
+
+- **Reading a photo:** the photo never leaves the phone. `wwwroot/js/cards.js` first tries the browser's own `BarcodeDetector` (Chrome on Android). Otherwise it passes greyscale pixels to ZXing.Net (`frontend/Cards/BarcodeService.cs`), which is what iPhones use. If the full photo fails, it retries on half-size copies.
+- **Card photo (optional):** resized in the browser to at most 1280px JPEG (about 100-200 KB) and stored privately at `.cards/<email>/photos/<card id>` (`PUT/GET/DELETE /api/Cards/{id}/photo`, max 2 MB). Deleting a card deletes its photo. The photo of the barcode can also be reused as the card photo.
+- **What's stored for the barcode:** only the name, barcode type, value and colour. The barcode is redrawn as a crisp SVG with the standard blank margin, so it scans better than a photo would. All 13 ZXing types are supported (Code 128/39/93, Codabar, EAN-13/8, UPC-A/E, ITF, QR, PDF417, Data Matrix, Aztec).
+- **API:** `GET/POST /api/Cards` and `PUT/DELETE /api/Cards/{id}`, with the same token and scope as the other endpoints. Each user's cards are one JSON blob at `.cards/<email>/cards.json`, outside the documents folder. Writes are conditional on the blob's ETag, so two devices saving at once don't overwrite each other. A user can save up to 50 cards.
+- **Offline:** after each successful load, the cards are saved in `localStorage` under a per-user key, and shown from there when there's no connection. Card photos are kept in Cache Storage (`uploaderdoc-card-photos`), one entry per photo version. Adding and editing need a connection. Signing out removes both.
+
 ## Repository layout
 
 ```
@@ -70,7 +79,7 @@ ng-app/                   Angular app for the My Documents tab, deployed to /ng/
 apphost/                  Aspire AppHost: starts API + Blazor + Angular locally with a dashboard (dev only)
 package.json              Root dev scripts: `npm run dev` starts all three apps (see docs/LOCAL_DEVELOPMENT.md)
 backend/                  ASP.NET Core Web API (DocUploaderApi.csproj)
-  Controllers/            DocumentUploadController, DocumentsController (list/download/delete)
+  Controllers/            DocumentUploadController, DocumentsController (list/download/delete), CardsController
   Services/               BlobStorageService (SAS generation, validation)
   docker-compose.yml      Optional: API + Azurite in containers
 infra/                    Bicep for the Static Web App and storage account (used by deploy-azd.yml)
