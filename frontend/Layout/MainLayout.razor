@@ -4,12 +4,11 @@
 <FluentLayout>
     <FluentHeader>
         <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" Width="100%">
-            <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center">
-                <FluentIcon Value="@(new Icons.Regular.Size24.DocumentAdd())" Color="Color.Accent" />
-                <FluentLabel Typo="Typography.H4" Color="Color.Accent">UploaderDoc</FluentLabel>
-            </FluentStack>
+            <a href="" class="header-brand">
+                <FluentIcon Value="@(new Icons.Regular.Size24.DocumentAdd())" Color="Color.Custom" CustomColor="#ffffff" />
+                <span>UploaderDoc</span>
+            </a>
             <FluentSpacer />
-                        <FluentSpacer />
             <LoginDisplay />
         </FluentStack>
     </FluentHeader>
@@ -34,3 +33,6 @@
         <a href="https://learn.microsoft.com/en-us/aspnet/core/blazor" target="_blank">About Blazor</a>
     </FluentFooter>
 </FluentLayout>
+
+@* Needed by components that open menus, e.g. the overflow menu FluentTabs shows when tabs don't fit (Games on phones) *@
+<FluentMenuProvider />

@@ -148,3 +148,44 @@ main { padding: 16px 24px; }
   overflow: hidden;
   clip: rect(0 0 0 0);
 }
+
+/* Phones: tables become stacked rows (name, then size/date details, then buttons) */
+@media (max-width: 600px) {
+  main { padding: 12px; }
+  .tabs { padding: 0 12px; }
+  .page-header h1 { font-size: 20px; }
+
+  .documents {
+    thead { display: none; }
+
+    &, tbody, tr, td { display: block; width: 100%; }
+
+    tr { padding: 10px 0; border-bottom: 1px solid var(--border); }
+    tbody tr:hover { background: none; }
+
+    td { padding: 2px 0; border: none; text-align: left; }
+    .name { font-weight: 600; }
+
+    .meta {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: left;
+
+      &::before { content: attr(data-label) ': '; }
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding-top: 6px;
+      text-align: left;
+      white-space: normal;
+    }
+    .actions > * + * { margin-left: 0; }
+
+    .share-row td { padding: 8px; }
+  }
+
+  .share-link { flex-basis: 100%; }
+}

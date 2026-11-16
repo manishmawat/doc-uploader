@@ -38,8 +38,8 @@
         @for (doc of documents(); track doc.name) {
           <tr>
             <td class="name">{{ doc.name }}</td>
-            <td class="num">{{ formatSize(doc.sizeBytes) }}</td>
-            <td>{{ doc.lastModified | date: 'medium' }}</td>
+            <td class="num meta" data-label="Size">{{ formatSize(doc.sizeBytes) }}</td>
+            <td class="meta" data-label="Modified">{{ doc.lastModified | date: 'medium' }}</td>
             <td class="actions">
               <button type="button" class="btn" (click)="download(doc)" [disabled]="busy() === doc.name">
                 Download
