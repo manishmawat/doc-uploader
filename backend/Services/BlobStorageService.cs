@@ -399,7 +399,7 @@ public class BlobStorageService : IBlobStorageService
     /// <summary>
     /// Sanitizes path segments to prevent directory traversal and special characters
     /// </summary>
-    private static string SanitizePath(string input)
+    internal static string SanitizePath(string input)
     {
         if (string.IsNullOrWhiteSpace(input))
             return "unknown";

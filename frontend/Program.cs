@@ -38,6 +38,10 @@ builder.Services.AddScoped<IPdfMergeService, PdfMergeService>();
 builder.Services.AddScoped<IFileConverterService, FileConverterService>();
 builder.Services.AddScoped<IPdfOptimizerService, PdfOptimizerService>();
 builder.Services.AddScoped<UploaderDoc.Games.GameScoreStore>();
+builder.Services.AddSingleton<UploaderDoc.Cards.BarcodeService>();
+builder.Services.AddScoped<UploaderDoc.Cards.CardsApiClient>();
+builder.Services.AddScoped<UploaderDoc.Cards.CardCache>();
+builder.Services.AddScoped<UploaderDoc.Cards.CardPhotos>();
 builder.Services.AddFluentUIComponents();
 
 await builder.Build().RunAsync();

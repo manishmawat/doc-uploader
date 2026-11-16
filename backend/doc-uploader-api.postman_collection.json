@@ -762,6 +762,305 @@
           ]
         }
       ]
+    },
+    {
+      "name": "My Cards",
+      "item": [
+        {
+          "name": "List Cards",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/Cards",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Cards"
+              ]
+            },
+            "description": "The signed-in user's saved barcode cards, sorted by name"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add Card",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Cards",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Cards"
+              ]
+            },
+            "description": "Saves a card (max 50). format is a ZXing name, e.g. CODE_128, EAN_13, QR_CODE",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Fitness club\",\n  \"format\": \"CODE_128\",\n  \"value\": \"0041237765\",\n  \"color\": \"#107c10\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('card_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add Card - Invalid Format",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Cards",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Cards"
+              ]
+            },
+            "description": "Unknown barcode types are rejected",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Fitness club\",\n  \"format\": \"BOGUS\",\n  \"value\": \"0041237765\",\n  \"color\": \"#107c10\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Card",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Cards/{{card_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Cards",
+                "{{card_id}}"
+              ]
+            },
+            "description": "Changes a card's name, barcode or colour",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Gym\",\n  \"format\": \"CODE_128\",\n  \"value\": \"0041237765\",\n  \"color\": \"#107c10\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Set Card Photo",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "image/jpeg"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/Cards/{{card_id}}/photo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Cards",
+                "{{card_id}}",
+                "photo"
+              ]
+            },
+            "description": "Body: the image (image/jpeg, image/png or image/webp, max 2 MB). Pick a file in Body > binary.",
+            "body": {
+              "mode": "file",
+              "file": {}
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Card Photo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/Cards/{{card_id}}/photo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Cards",
+                "{{card_id}}",
+                "photo"
+              ]
+            },
+            "description": "Returns the card's photo; 404 if it has none"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Remove Card Photo",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/Cards/{{card_id}}/photo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Cards",
+                "{{card_id}}",
+                "photo"
+              ]
+            },
+            "description": "Removes the card's photo and returns the updated card"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Card",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/Cards/{{card_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "Cards",
+                "{{card_id}}"
+              ]
+            },
+            "description": "Deletes a card; 404 if it doesn't exist"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [
@@ -815,6 +1114,12 @@
     },
     {
       "key": "document_name",
+      "value": "",
+      "type": "string",
+      "disabled": false
+    },
+    {
+      "key": "card_id",
       "value": "",
       "type": "string",
       "disabled": false

@@ -1,0 +1,74 @@
+@using UploaderDoc.Cards
+@implements IAsyncDisposable
+@inject BarcodeService Barcodes
+@inject IJSRuntime JSRuntime
+
+@* Full-screen, white, high-contrast view for showing the barcode to a scanner *@
+<div class="card-display" role="dialog" aria-modal="true" aria-label="@Card.Name barcode"
+     tabindex="-1" @ref="container" @onkeydown="OnKeyDown">
+    <div class="card-display-header" style="background:@Card.Color">
+        <strong>@Card.Name</strong>
+        <button type="button" class="card-display-close" @onclick="OnClose" aria-label="Close">✕</button>
+    </div>
+    <div class="card-display-body">
+        <div class="card-display-barcode @(BarcodeFormats.IsLinear(Card.Format) ? "linear" : "square")">
+            @if (svg is not null)
+            {
+                @((MarkupString)svg)
+            }
+        </div>
+        <div class="card-display-value">@Card.Value</div>
+        <p class="card-display-tip">Turn your screen brightness up if the scanner doesn't read it.</p>
+        @if (PhotoUrl is not null)
+        {
+            <img class="card-display-photo" src="@PhotoUrl" alt="Photo of the @Card.Name card" />
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public BarcodeCard Card { get; set; } = null!;
+    [Parameter] public string? PhotoUrl { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private ElementReference container;
+    private IJSObjectReference? module;
+    private string? svg;
+
+    protected override void OnParametersSet()
+    {
+        try
+        {
+            svg = Barcodes.ToSvg(Card.Format, Card.Value);
+        }
+        catch (Exception)
+        {
+            svg = null; // shouldn't happen: cards are validated before saving
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+        await container.FocusAsync();
+        module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/cards.js");
+        await module.InvokeVoidAsync("keepScreenOn");
+    }
+
+    private Task OnKeyDown(KeyboardEventArgs e) => e.Key == "Escape" ? OnClose.InvokeAsync() : Task.CompletedTask;
+
+    public async ValueTask DisposeAsync()
+    {
+        if (module is null)
+            return;
+        try
+        {
+            await module.InvokeVoidAsync("allowScreenOff");
+            await module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+}
