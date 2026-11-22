@@ -5,15 +5,15 @@
 
 <AuthorizeView>
     <Authorized>
-        <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center">
-            <FluentPersona Name="@GetDisplayName(context.User)" 
-                          Status="PresenceStatus.Available" />
-            <FluentButton Appearance="Appearance.Outline" 
-                          IconStart="@(new Icons.Regular.Size16.ArrowExit())"
-                          OnClick="BeginLogOut">
-                Sign out
-            </FluentButton>
-        </FluentStack>
+        @{ var displayName = GetDisplayName(context.User); }
+        <div class="login-user">
+            <span class="login-avatar" aria-hidden="true">@Initials(displayName)</span>
+            <span class="login-name" title="@displayName">@displayName</span>
+            <button type="button" class="login-signout" @onclick="BeginLogOut" title="Sign out" aria-label="Sign out">
+                <FluentIcon Value="@(new Icons.Regular.Size16.ArrowExit())" Color="Color.Custom" CustomColor="#ffffff" />
+                <span class="login-label">Sign out</span>
+            </button>
+        </div>
     </Authorized>
     <NotAuthorized>
         <FluentButton Appearance="Appearance.Accent" 
@@ -42,6 +42,18 @@
     private void BeginLogIn()
     {
         Navigation.NavigateToLogin("authentication/login");
+    }
+
+    /// <summary>"Manish K Mawatwal" -> "MM"; one word -> its first letter</summary>
+    private static string Initials(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length switch
+        {
+            0 => "?",
+            1 => parts[0][..1].ToUpperInvariant(),
+            _ => $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant()
+        };
     }
 
     private string GetDisplayName(System.Security.Claims.ClaimsPrincipal user)

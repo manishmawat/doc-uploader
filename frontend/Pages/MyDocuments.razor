@@ -19,6 +19,7 @@
     private IJSObjectReference? module;
     private DotNetObjectReference<MyDocuments>? selfReference;
     private string appUrl = "/ng/";
+    private bool disposed;
 
     protected override void OnInitialized()
     {
@@ -31,8 +32,16 @@
             return;
 
         var appOrigin = new Uri(Navigation.ToAbsoluteUri(appUrl).GetLeftPart(UriPartial.Authority)).ToString().TrimEnd('/');
+        var imported = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/ngHost.js");
+        // The page may be left while the script loads (slow when offline): then don't hand JS a
+        // reference that DisposeAsync has already disposed
+        if (disposed)
+        {
+            await imported.DisposeAsync();
+            return;
+        }
+        module = imported;
         selfReference = DotNetObjectReference.Create(this);
-        module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/ngHost.js");
         await module.InvokeVoidAsync("start", frame, selfReference, appOrigin);
     }
 
@@ -60,6 +69,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        disposed = true;
         if (module is not null)
         {
             try
