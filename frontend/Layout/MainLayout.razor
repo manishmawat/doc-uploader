@@ -15,14 +15,24 @@
     <FluentStack Class="main" Orientation="Orientation.Horizontal" Width="100%">
         <NavMenu />
         <FluentBodyContent Class="body-content">
-            <ErrorBoundary>
+            <ErrorBoundary @ref="errorBoundary">
                 <ChildContent>
                     <div class="content">
                         @Body
                     </div>
                 </ChildContent>
                 <ErrorContent Context="ex">
-                    <div class="blazor-error-boundary">@ex.Message</div>
+                    <div class="blazor-error-boundary" role="alert">
+                        <strong>Something went wrong on this page.</strong>
+                        <div class="error-actions">
+                            <button type="button" @onclick="() => errorBoundary?.Recover()">Try again</button>
+                            <a href="">Go to Home</a>
+                        </div>
+                        <details>
+                            <summary>Details</summary>
+                            <code>@ex.GetType().Name: @ex.Message</code>
+                        </details>
+                    </div>
                 </ErrorContent>
             </ErrorBoundary>
         </FluentBodyContent>
@@ -33,6 +43,13 @@
         <a href="https://learn.microsoft.com/en-us/aspnet/core/blazor" target="_blank">About Blazor</a>
     </FluentFooter>
 </FluentLayout>
+
+@code {
+    private ErrorBoundary? errorBoundary;
+
+    // A page error shouldn't stick: going to another page shows that page again
+    protected override void OnParametersSet() => errorBoundary?.Recover();
+}
 
 @* Needed by components that open menus, e.g. the overflow menu FluentTabs shows when tabs don't fit (Games on phones) *@
 <FluentMenuProvider />

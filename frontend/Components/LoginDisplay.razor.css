@@ -1,0 +1,59 @@
+.login-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.login-avatar {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #ffffff;
+    color: #0f6cbd;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.login-name {
+    max-width: 220px;
+    overflow: hidden;
+    color: #ffffff;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.login-signout {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 4px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: 4px;
+    background: transparent;
+    color: #ffffff;
+    font: 14px var(--body-font);
+    cursor: pointer;
+}
+
+.login-signout:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.login-signout:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+}
+
+/* Phones: initials and an icon-only Sign out button, so the header fits */
+@media (max-width: 600px) {
+    .login-name,
+    .login-label {
+        display: none;
+    }
+}
